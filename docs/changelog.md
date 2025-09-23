@@ -9,6 +9,11 @@ tags:
 
 # Change Log
 
+23-09-2025
+--
+- collinearity filtering & feature selection
+- input graph construction for node classification
+
 03-09-2025
 --
 - lay out requirements

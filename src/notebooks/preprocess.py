@@ -24,7 +24,7 @@ def _(Path, duckdb):
 @app.cell
 def _(duck_conn):
     duck_conn.sql("drop table if exists nb15_desc")
-    duck_conn.read_csv("dataset/NUSW-NB15_features.csv").to_table("nb15_desc")
+    duck_conn.read_csv("dataset/original/NUSW-NB15_features.csv").to_table("nb15_desc")
     return
 
 
@@ -57,17 +57,18 @@ def _(duck_conn):
 
 
 @app.cell
-def _():
+def _(duck_conn):
+    duck_conn.table("nb15_types").to_df()
     return
 
 
 @app.cell
 def _():
     csv_files = [
-        "dataset/UNSW-NB15_1.csv",
-        "dataset/UNSW-NB15_2.csv",
-        "dataset/UNSW-NB15_3.csv",
-        "dataset/UNSW-NB15_4.csv",
+        "dataset/original/UNSW-NB15_1.csv",
+        "dataset/original/UNSW-NB15_2.csv",
+        "dataset/original/UNSW-NB15_3.csv",
+        "dataset/original/UNSW-NB15_4.csv",
     ]
 
     columns = {
@@ -147,12 +148,13 @@ def _(columns, csv_files, duck_conn):
                 end as state,
 
                 case
-                    when service = '-' then service
+                    when service = '-' then 'no_service'
                     when lower(service) = 'dns' then 'dns'
                     else 'other'
                 end as service,
 
                 cast(replace(ct_ftp_cmd, ' ', '0') as BIGINT) as ct_ftp_cmd,
+
 
                 case
                     when trim(attack_cat) == 'Backdoor' then 'Backdoors'
@@ -201,26 +203,26 @@ def _(duck_conn):
         with proto_onehot as (
             pivot nb15_cleaned
             on proto
-            using coalesce(max(proto = proto)::int, 0) as onehot
+            using coalesce(max(proto = proto)::int, 0) as proto_onehot
             group by proto
         ),
         service_onehot as (
             pivot nb15_cleaned
             on service
-            using coalesce(max(service = service), 0) as onehot
+            using coalesce(max(service = service), 0) as service_onehot
             group by service
         ),
         state_onehot as (
             pivot nb15_cleaned
             on state
-            using coalesce(max(state = state), 0) as onehot
+            using coalesce(max(state = state), 0) as state_onehot
             group by state
         )
         select
             nb15_cleaned.* exclude (proto, state, service),
-            proto_onehot.* like '%\_onehot' escape '\',
-            state_onehot.* like '%\_onehot' escape '\',
-            service_onehot.* like '%\_onehot' escape '\'
+            proto_onehot.* like '%\_proto_onehot' escape '\',
+            state_onehot.* like '%\_state_onehot' escape '\',
+            service_onehot.* like '%\_service_onehot' escape '\'
         from nb15_cleaned
         inner join proto_onehot using (proto)
         inner join state_onehot using (state)
@@ -232,7 +234,7 @@ def _(duck_conn):
 @app.cell
 def _(duck_conn):
     duck_conn.sql(r"""
-        select * from nb15_onehots
+        select columns('\w+_onehot') from nb15_onehots
     """).fetch_df_chunk()
     return
 
@@ -274,6 +276,14 @@ def _(duck_conn):
         from nb15_trainval
         anti join nb15_trainset using (id)
     """)
+    return
+
+
+@app.cell
+def _(duck_conn):
+    duck_conn.sql(r"""
+        summarize nb15_trainset
+    """).to_df()
     return
 
 
@@ -358,17 +368,17 @@ def _():
 
 @app.cell
 def _(build_standardize_query, duck_conn, to_standardize):
-    duck_conn.sql("drop table if exists nb15_train_standardized")
+    duck_conn.sql("drop table if exists nb15_train_featurized")
     duck_conn.sql(
         build_standardize_query('nb15_trainset', 'nb15_trainset', to_standardize)
     ).to_table('nb15_train_featurized')
 
-    duck_conn.sql("drop table if exists nb15_val_standardized")
+    duck_conn.sql("drop table if exists nb15_val_featurized")
     duck_conn.sql(
         build_standardize_query('nb15_trainset', 'nb15_valset', to_standardize)
     ).to_table('nb15_val_featurized')
 
-    duck_conn.sql("drop table if exists nb15_test_standardized")
+    duck_conn.sql("drop table if exists nb15_test_featurized")
     duck_conn.sql(
         build_standardize_query('nb15_trainset', 'nb15_testset', to_standardize)
     ).to_table('nb15_test_featurized')

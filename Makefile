@@ -14,7 +14,7 @@ help:
 
 
 notebooks:
-	uv run marimo edit --headless
+	uv run marimo edit --headless --watch
 
 sync_doc:
 	scripts/sync_doc.sh "$(DOC_SRC)" "$(DOC_DST)"
