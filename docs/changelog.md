@@ -1,18 +1,10 @@
----
-title: changelog
-author: vixdang0x7d3
-created: 2025-09-03
-lastmod: 2025-09-03
-description: Just a change log 
-tags:
----
-
 # Change Log
 
-23-09-2025
+03 to 23-09-2025
 --
 - collinearity filtering & feature selection
 - input graph construction for node classification
+- study graph neural network
 
 03-09-2025
 --
