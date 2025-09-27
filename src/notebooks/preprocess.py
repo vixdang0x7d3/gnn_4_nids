@@ -16,7 +16,6 @@ def _():
 @app.cell
 def _(Path, duckdb):
     data_src_path = Path("/home/saladass/crafts/gnn-ids/dataset")
-
     duck_conn = duckdb.connect("dataset/nb15.duckdb")
     return (duck_conn,)
 
@@ -148,7 +147,7 @@ def _(columns, csv_files, duck_conn):
                 end as state,
 
                 case
-                    when service = '-' then 'no_service'
+                    when service = '-' then 'unknown'
                     when lower(service) = 'dns' then 'dns'
                     else 'other'
                 end as service,
@@ -195,7 +194,7 @@ def _(duck_conn):
     return
 
 
-@app.cell
+@app.cell(disabled=True)
 def _(duck_conn):
     duck_conn.sql("""drop table if exists nb15_onehots""")
 
@@ -231,7 +230,7 @@ def _(duck_conn):
     return
 
 
-@app.cell
+@app.cell(disabled=True)
 def _(duck_conn):
     duck_conn.sql(r"""
         select columns('\w+_onehot') from nb15_onehots
@@ -246,7 +245,7 @@ def _(duck_conn):
     duck_conn.sql("drop table if exists nb15_trainval")
     duck_conn.sql(r"""
         create table nb15_trainval as
-        from nb15_onehots
+        from nb15_cleaned
         using sample 80 percent (bernoulli, 42)
     """)
 
@@ -255,7 +254,7 @@ def _(duck_conn):
     duck_conn.sql("drop table if exists nb15_testset")
     duck_conn.sql(r"""
         create table nb15_testset as 
-        from nb15_onehots
+        from nb15_cleaned
         anti join nb15_trainval using (id)
     """)
 
@@ -264,7 +263,7 @@ def _(duck_conn):
     duck_conn.sql("drop table if exists nb15_trainset")
     duck_conn.sql(r"""
         create table nb15_trainset as
-        from nb15_trainval
+        from nb15_cleaned
         using sample 75 percent (bernoulli, 42)
     """)
 
@@ -390,6 +389,27 @@ def _(duck_conn):
     duck_conn.sql(r"""
         select * from nb15_train_featurized  
     """).fetch_df_chunk()
+    return
+
+
+@app.cell
+def _(duck_conn):
+    duck_conn.sql(r"""
+        copy nb15_train_featurized to 'nb15_train.parquet'
+        (format parquet)
+    """ )
+
+
+    duck_conn.sql(r"""
+        copy nb15_val_featurized to 'nb15_val.parquet'
+        (format parquet)
+    """ )
+
+
+    duck_conn.sql(r"""
+        copy nb15_test_featurized to 'nb15_test.parquet'
+        (format parquet)
+    """ )
     return
 
 

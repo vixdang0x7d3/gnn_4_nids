@@ -7,10 +7,16 @@ app = marimo.App(width="medium")
 @app.cell
 def _():
     import marimo as mo
-
-    from pathlib import Path
     import sys
-    return (sys,)
+    from pathlib import Path
+    return Path, sys
+
+
+@app.cell
+def _(Path, sys):
+    root_dir = Path(__file__).parent.parent.parent
+    sys.path.append(str(root_dir))
+    return
 
 
 @app.cell
@@ -21,25 +27,433 @@ def _(sys):
 
 @app.cell
 def _():
-    from gnn.dataset import NB15Dataset
-    return (NB15Dataset,)
+    from src.gnn.dataset import NB15Dataset, SELECTED_COLS
+    from src.gnn.graph_builder import GraphBuilder
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    import torch
+    import numpy as np
+    import pandas as pd
+    from sklearn.manifold import TSNE
+    from sklearn.decomposition import PCA
+    import networkx as nx
+    from torch_geometric.utils import to_networkx
+    import warnings
+
+    warnings.filterwarnings("ignore")
+    return GraphBuilder, PCA, SELECTED_COLS, TSNE, np, nx, plt, sns, torch
 
 
 @app.cell
-def _(NB15Dataset):
-    nb15 = NB15Dataset(
-        root="/tmp/NB15",
-        num_neighbors=2,
-        binary=True,
-        augmentation=True,
-        split=0,
+def _(GraphBuilder, SELECTED_COLS):
+    gb = GraphBuilder(
+        raw_path="dataset/NB15/sample/nb15_train.parquet",
+        selected_cols=SELECTED_COLS,
+        n_neighbors=3,
+        binary=False,
+        augmentation=False,
     )
-    return (nb15,)
+    return (gb,)
 
 
 @app.cell
-def _(nb15):
-    nb15.raw_paths[0]
+def _(gb):
+    ptg = gb.build_graph()
+    return (ptg,)
+
+
+@app.cell
+def _(np, plt, ptg, sns, torch):
+    if ptg is not None:
+        # Basic graph statistics visualization
+        fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+
+        # 1. Node degree distribution
+        if ptg.edge_index.size(1) > 0:
+            node_degrees = torch.zeros(ptg.num_nodes, dtype=torch.long)
+            node_degrees.scatter_add_(
+                0,
+                ptg.edge_index[0],
+                torch.ones(ptg.edge_index.size(1), dtype=torch.long),
+            )
+            node_degrees.scatter_add_(
+                0,
+                ptg.edge_index[1],
+                torch.ones(ptg.edge_index.size(1), dtype=torch.long),
+            )
+
+            axes[0, 0].hist(node_degrees.numpy(), bins=30, alpha=0.7)
+            axes[0, 0].set_title("Node Degree Distribution")
+            axes[0, 0].set_xlabel("Degree")
+            axes[0, 0].set_ylabel("Count")
+        else:
+            axes[0, 0].text(0.5, 0.5, "No edges in graph", ha="center", va="center")
+            axes[0, 0].set_title("Node Degree Distribution")
+
+        # 2. Label distribution
+        graph_labels = ptg.y.numpy()
+        unique_labels, counts = np.unique(graph_labels, return_counts=True)
+        axes[0, 1].bar(unique_labels, counts, alpha=0.7)
+        axes[0, 1].set_title("Label Distribution")
+        axes[0, 1].set_xlabel("Label")
+        axes[0, 1].set_ylabel("Count")
+
+        # 3. Feature distribution heatmap
+        feature_data = ptg.x.numpy()
+        if feature_data.shape[1] <= 20:  # Only if reasonable number of features
+            sns.heatmap(
+                np.corrcoef(feature_data.T), ax=axes[1, 0], cmap="coolwarm", center=0
+            )
+            axes[1, 0].set_title("Feature Correlation Matrix")
+        else:
+            axes[1, 0].text(
+                0.5,
+                0.5,
+                f"{feature_data.shape[1]} features\n(too many for heatmap)",
+                ha="center",
+                va="center",
+            )
+            axes[1, 0].set_title("Feature Correlation Matrix")
+
+        # 4. Graph connectivity
+        if ptg.edge_index.size(1) > 0:
+            edge_density = ptg.edge_index.size(1) / (
+                ptg.num_nodes * (ptg.num_nodes - 1)
+            )
+            connected_components = 1  # Simplified estimate
+
+            metrics_text = f"""
+            Nodes: {ptg.num_nodes:,}
+            Edges: {ptg.edge_index.size(1):,}
+            Features: {ptg.num_features}
+            Classes: {ptg.num_node_types}
+            Edge Density: {edge_density:.6f}
+            """
+            axes[1, 1].text(0.1, 0.5, metrics_text, fontsize=12, va="center")
+        else:
+            metrics_text = f"""
+            Nodes: {ptg.num_nodes:,}
+            Edges: 0
+            Features: {ptg.num_features}
+            Classes: {ptg.num_node_types}
+            Graph: Disconnected (no edges)
+            """
+            axes[1, 1].text(0.1, 0.5, metrics_text, fontsize=12, va="center")
+
+        axes[1, 1].set_title("Graph Statistics")
+        axes[1, 1].axis("off")
+
+        plt.tight_layout()
+        plt.savefig("dataset_visualization.png", dpi=150, bbox_inches="tight")
+        plt.show()
+
+        print("Graph visualization saved as dataset_visualization.png")
+        print(f"Graph data shape: nodes={ptg.num_nodes}, features={ptg.num_features}")
+        print(f"Edge connectivity: {ptg.edge_index.size(1)} edges")
+    else:
+        print("No graph data to visualize")
+    return
+
+
+@app.cell
+def _(PCA, TSNE, np, nx, plt, ptg, torch):
+    if ptg is not None and ptg.edge_index.size(1) > 0:
+        print("Creating graph structure visualizations...")
+
+        # Sample data for visualization (use subset for large graphs)
+        max_nodes_viz = 5000
+        if ptg.num_nodes > max_nodes_viz:
+            # Sample nodes while preserving label distribution
+            node_labels = ptg.y.numpy()
+            unique_node_labels = np.unique(node_labels)
+            sample_indices = []
+
+            samples_per_label = max_nodes_viz // len(unique_node_labels)
+            for label in unique_node_labels:
+                label_indices = np.where(node_labels == label)[0]
+                if len(label_indices) > samples_per_label:
+                    selected = np.random.choice(
+                        label_indices, samples_per_label, replace=False
+                    )
+                else:
+                    selected = label_indices
+                sample_indices.extend(selected)
+
+            sample_indices = np.array(sample_indices[:max_nodes_viz])
+
+            # Create subgraph
+            node_mask = torch.zeros(ptg.num_nodes, dtype=torch.bool)
+            node_mask[sample_indices] = True
+
+            # Filter edges to only include sampled nodes
+            edge_mask = node_mask[ptg.edge_index[0]] & node_mask[ptg.edge_index[1]]
+            sampled_edges = ptg.edge_index[:, edge_mask]
+
+            # Remap node indices
+            old_to_new = torch.full((ptg.num_nodes,), -1, dtype=torch.long)
+            old_to_new[sample_indices] = torch.arange(len(sample_indices))
+            sampled_edges = old_to_new[sampled_edges]
+
+            sample_x = ptg.x[sample_indices]
+            sample_y = ptg.y[sample_indices]
+
+            print(
+                f"Sampled {len(sample_indices)} nodes from {ptg.num_nodes} for visualization"
+            )
+        else:
+            sampled_edges = ptg.edge_index
+            sample_x = ptg.x
+            sample_y = ptg.y
+            sample_indices = np.arange(ptg.num_nodes)
+
+        # Create figure for graph structure visualizations
+        struct_fig, struct_axes = plt.subplots(2, 2, figsize=(16, 16))
+
+        # 1. PCA visualization
+        if sample_x.shape[0] > 1:
+            pca = PCA(n_components=2)
+            pca_result = pca.fit_transform(sample_x.numpy())
+
+            scatter = struct_axes[0, 0].scatter(
+                pca_result[:, 0],
+                pca_result[:, 1],
+                c=sample_y.numpy(),
+                cmap="tab10",
+                alpha=0.6,
+                s=20,
+            )
+            struct_axes[0, 0].set_title(
+                f"PCA Visualization\nExplained Variance: {pca.explained_variance_ratio_.sum():.2f}"
+            )
+            struct_axes[0, 0].set_xlabel(
+                f"PC1 ({pca.explained_variance_ratio_[0]:.2f})"
+            )
+            struct_axes[0, 0].set_ylabel(
+                f"PC2 ({pca.explained_variance_ratio_[1]:.2f})"
+            )
+            plt.colorbar(scatter, ax=struct_axes[0, 0], label="Class")
+
+        # 2. t-SNE visualization (sample smaller subset for t-SNE due to computational cost)
+        tsne_max = min(1000, len(sample_x))
+        if tsne_max > 50:  # Only run t-SNE if we have enough samples
+            tsne_indices = np.random.choice(len(sample_x), tsne_max, replace=False)
+            tsne_x = sample_x[tsne_indices].numpy()
+            tsne_y = sample_y[tsne_indices].numpy()
+
+            print(f"Running t-SNE on {tsne_max} samples...")
+            tsne = TSNE(
+                n_components=2, random_state=42, perplexity=min(30, tsne_max - 1)
+            )
+            tsne_result = tsne.fit_transform(tsne_x)
+
+            scatter = struct_axes[0, 1].scatter(
+                tsne_result[:, 0],
+                tsne_result[:, 1],
+                c=tsne_y,
+                cmap="tab10",
+                alpha=0.6,
+                s=20,
+            )
+            struct_axes[0, 1].set_title("t-SNE Visualization")
+            struct_axes[0, 1].set_xlabel("t-SNE 1")
+            struct_axes[0, 1].set_ylabel("t-SNE 2")
+            plt.colorbar(scatter, ax=struct_axes[0, 1], label="Class")
+        else:
+            struct_axes[0, 1].text(
+                0.5, 0.5, "Insufficient data for t-SNE", ha="center", va="center"
+            )
+            struct_axes[0, 1].set_title("t-SNE Visualization")
+
+        # 3. Network graph visualization (sample connected subgraph)
+        net_max = min(150, len(sample_x))  # Reduced for better connectivity density
+        if sampled_edges.size(1) > 0 and net_max > 10:
+            # Strategy: Find edges first, then select nodes that participate in those edges
+            if len(sample_x) > net_max:
+                # Method 1: Select edges with highest degree endpoints
+                temp_degrees = torch.zeros(len(sample_x), dtype=torch.long)
+                temp_degrees.scatter_add_(
+                    0,
+                    sampled_edges[0],
+                    torch.ones(sampled_edges.size(1), dtype=torch.long),
+                )
+                temp_degrees.scatter_add_(
+                    0,
+                    sampled_edges[1],
+                    torch.ones(sampled_edges.size(1), dtype=torch.long),
+                )
+
+                # Score edges by sum of endpoint degrees
+                edge_scores = (
+                    temp_degrees[sampled_edges[0]] + temp_degrees[sampled_edges[1]]
+                )
+
+                # Sort edges by score (descending)
+                sorted_edge_indices = torch.argsort(edge_scores, descending=True)
+
+                # Select top edges and their nodes
+                selected_nodes = set()
+                selected_edge_indices = []
+
+                for edge_idx in sorted_edge_indices:
+                    src, dst = (
+                        sampled_edges[0, edge_idx].item(),
+                        sampled_edges[1, edge_idx].item(),
+                    )
+
+                    # Add edge if it doesn't make us exceed node limit
+                    potential_new_nodes = {src, dst} - selected_nodes
+                    if len(selected_nodes) + len(potential_new_nodes) <= net_max:
+                        selected_nodes.update({src, dst})
+                        selected_edge_indices.append(edge_idx.item())
+                    elif (
+                        len(selected_nodes) < net_max and len(potential_new_nodes) == 1
+                    ):
+                        # Add edge if only one new node
+                        selected_nodes.update(potential_new_nodes)
+                        selected_edge_indices.append(edge_idx.item())
+
+                    if len(selected_nodes) >= net_max:
+                        break
+
+                # If we still don't have enough nodes, add high-degree isolated nodes
+                if len(selected_nodes) < net_max:
+                    remaining_nodes = set(range(len(sample_x))) - selected_nodes
+                    if remaining_nodes:
+                        remaining_list = list(remaining_nodes)
+                        remaining_degrees = temp_degrees[remaining_list]
+                        sorted_remaining = [
+                            remaining_list[i]
+                            for i in torch.argsort(remaining_degrees, descending=True)
+                        ]
+
+                        add_count = min(
+                            len(sorted_remaining), net_max - len(selected_nodes)
+                        )
+                        selected_nodes.update(sorted_remaining[:add_count])
+
+                net_indices = np.array(list(selected_nodes))
+                print(
+                    f"Selected {len(selected_edge_indices)} high-scoring edges covering {len(net_indices)} nodes"
+                )
+            else:
+                net_indices = np.arange(len(sample_x))
+
+            # Create mapping for network indices
+            net_old_to_new = {
+                old_idx: new_idx for new_idx, old_idx in enumerate(net_indices)
+            }
+
+            # Filter edges for network visualization
+            net_edges = []
+            for i in range(sampled_edges.size(1)):
+                src, dst = sampled_edges[0, i].item(), sampled_edges[1, i].item()
+                if src in net_old_to_new and dst in net_old_to_new:
+                    net_edges.append((net_old_to_new[src], net_old_to_new[dst]))
+
+            print(
+                f"Network graph: selected {len(net_indices)} nodes with {len(net_edges)} edges"
+            )
+
+            if net_edges:
+                # Create NetworkX graph
+                G = nx.Graph()
+                G.add_nodes_from(range(len(net_indices)))
+                G.add_edges_from(net_edges)
+
+                # Layout with better spacing
+                pos = nx.spring_layout(
+                    G, k=1 / np.sqrt(len(net_indices) / 10), iterations=50, seed=42
+                )
+
+                # Node colors based on labels
+                node_colors = [
+                    sample_y[net_indices[node]].item()
+                    for node in G.nodes()
+                    if node < len(net_indices)
+                ]
+
+                nx.draw(
+                    G,
+                    pos,
+                    ax=struct_axes[1, 0],
+                    node_color=node_colors,
+                    node_size=50,
+                    alpha=0.8,
+                    cmap="tab10",
+                    edge_color="gray",
+                    width=0.3,
+                    with_labels=False,
+                )
+                struct_axes[1, 0].set_title(
+                    f"Network Graph ({len(net_indices)} nodes, {len(net_edges)} edges)"
+                )
+            else:
+                struct_axes[1, 0].text(
+                    0.5, 0.5, "No edges in subgraph", ha="center", va="center"
+                )
+                struct_axes[1, 0].set_title("Network Graph")
+        else:
+            struct_axes[1, 0].text(
+                0.5,
+                0.5,
+                "Insufficient edges for visualization",
+                ha="center",
+                va="center",
+            )
+            struct_axes[1, 0].set_title("Network Graph")
+
+        # 4. Degree vs Feature correlation
+        if sampled_edges.size(1) > 0:
+            # Calculate degrees for sampled nodes
+            sample_degrees = torch.zeros(len(sample_x), dtype=torch.long)
+            sample_degrees.scatter_add_(
+                0, sampled_edges[0], torch.ones(sampled_edges.size(1), dtype=torch.long)
+            )
+            sample_degrees.scatter_add_(
+                0, sampled_edges[1], torch.ones(sampled_edges.size(1), dtype=torch.long)
+            )
+
+            # Use first principal component as representative feature
+            if sample_x.shape[0] > 1:
+                pca_single = PCA(n_components=1)
+                feature_repr = pca_single.fit_transform(sample_x.numpy()).flatten()
+
+                struct_axes[1, 1].scatter(
+                    sample_degrees.numpy(), feature_repr, alpha=0.6, s=20
+                )
+                struct_axes[1, 1].set_xlabel("Node Degree")
+                struct_axes[1, 1].set_ylabel("Feature PC1")
+                struct_axes[1, 1].set_title("Degree vs Feature Relationship")
+
+                # Add correlation coefficient
+                corr = np.corrcoef(sample_degrees.numpy(), feature_repr)[0, 1]
+                struct_axes[1, 1].text(
+                    0.05,
+                    0.95,
+                    f"Correlation: {corr:.3f}",
+                    transform=struct_axes[1, 1].transAxes,
+                    bbox=dict(boxstyle="round", facecolor="white", alpha=0.8),
+                )
+            else:
+                struct_axes[1, 1].text(
+                    0.5, 0.5, "Insufficient data", ha="center", va="center"
+                )
+                struct_axes[1, 1].set_title("Degree vs Feature Relationship")
+        else:
+            struct_axes[1, 1].text(
+                0.5, 0.5, "No edges available", ha="center", va="center"
+            )
+            struct_axes[1, 1].set_title("Degree vs Feature Relationship")
+
+        plt.tight_layout()
+        plt.savefig("graph_structure_visualization.png", dpi=150, bbox_inches="tight")
+        plt.show()
+
+        print(
+            "Graph structure visualization saved as graph_structure_visualization.png"
+        )
+    else:
+        print("No graph structure to visualize (no edges or no graph data)")
     return
 
 
