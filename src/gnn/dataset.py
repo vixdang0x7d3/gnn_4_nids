@@ -8,7 +8,8 @@ from .graph_builder import GraphBuilder
 from torch_geometric.data import Dataset, extract_zip
 
 
-GDRIVE_URL = "https://drive.google.com/file/d/1ey0Q1INfaq7EajVRAqbPUX12AeNukrcY/view?usp=drive_link"
+# remember to change this every time you modify the upstream data pipeline
+GDRIVE_URL = "https://drive.google.com/file/d/1dTKTmNuhUm4ys5H9GXo_0i22joS73HWd/view?usp=drive_link"
 
 SELECTED_COLS = [
     "min_max_sttl",
@@ -53,7 +54,7 @@ class NB15Dataset(Dataset):
             case 0:  # train set
                 file_path = (
                     f"nb15_train{'_binary' if self.binary else ''}"
-                    f"_{self.num_neigbors}{'_aug' if self.augmentation else ''}.pt"
+                    f"_{self.n_neighbors}{'_aug' if self.augmentation else ''}.pt"
                 )
             case 1:  # val set
                 file_path = (
@@ -91,11 +92,40 @@ class NB15Dataset(Dataset):
             case 0:  # train
                 file_path = (
                     f"nb15_train{'_binary' if self.binary else ''}"
-                    f"_{self.num_neighbors}{'_aug' if self.augmentation else ''}.pt"
+                    f"_{self.n_neighbors}{'_aug' if self.augmentation else ''}.pt"
                 )
             case 1:  # val
-                file_path = f"nb15_val{'_binary' if self.binary else ''}_{self.num_neighbors}.pt"
+                file_path = (
+                    f"nb15_val{'_binary' if self.binary else ''}_{self.n_neighbors}.pt"
+                )
             case 2:
-                file_path = f"nb15_test{'_binary' if self.binary else ''}_{self.num_neighbors}.pt"
+                file_path = (
+                    f"nb15_test{'_binary' if self.binary else ''}_{self.n_neighbors}.pt"
+                )
 
-        torch.save(ptg, os.path.join(self.processed_dir, file_path))
+        torch.save(ptg, osp.join(self.processed_dir, file_path))
+
+    def len(self):
+        return 1
+
+    def get(self, idx: int):
+        match self.split:
+            case 0:
+                file_path = (
+                    f"nb15_train{'_binary' if self.binary else ''}"
+                    f"_{self.n_neighbors}{'_aug' if self.augmentation else ''}.pt"
+                )
+
+            case 1:
+                file_path = (
+                    f"nb15_val{'_binary' if self.binary else ''}_{self.n_neighbors}.pt"
+                )
+
+            case 2:
+                file_path = (
+                    f"nb15_test{'_binary' if self.binary else ''}_{self.n_neighbors}.pt"
+                )
+
+        # weights_only = False required to load PyG's Data class
+        data = torch.load(osp.join(self.processed_dir, file_path), weights_only=False)
+        return data

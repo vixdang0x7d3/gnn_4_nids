@@ -1,0 +1,128 @@
+{
+  "version": "1",
+  "metadata": {
+    "marimo_version": "0.15.2"
+  },
+  "cells": [
+    {
+      "id": "Hbol",
+      "code_hash": "937aea07cba09b9d2c45f2ea9762d8b4",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "MJUe",
+      "code_hash": "517e037026370cbc177ac79538c41b95",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "vblA",
+      "code_hash": "63e58a8737b45d6f1f6cacf729285a0a",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<pre style='font-size: 12px'>14</pre>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "bkHC",
+      "code_hash": "d200491334a76346437730d5379f64c7",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "lEQa",
+      "code_hash": "2790556a58e9dfe19f5b120d30cb51d8",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<pre style='font-size: 12px'>NB15_GCN(\n  (linear): Linear(in_features=14, out_features=512, bias=True)\n  (convs): ModuleList(\n    (0): GCN2Conv(512, alpha=0.5, beta=0.5306282510621704)\n    (1): GCN2Conv(512, alpha=0.5, beta=0.30010459245033816)\n    (2): GCN2Conv(512, alpha=0.5, beta=0.2097205309820691)\n    (3): GCN2Conv(512, alpha=0.5, beta=0.16126814759612232)\n    (4): GCN2Conv(512, alpha=0.5, beta=0.131028262406404)\n    (5): GCN2Conv(512, alpha=0.5, beta=0.11034805716886541)\n    (6): GCN2Conv(512, alpha=0.5, beta=0.09531017980432493)\n    (7): GCN2Conv(512, alpha=0.5, beta=0.08388148398070203)\n    (8): GCN2Conv(512, alpha=0.5, beta=0.0749013081731177)\n    (9): GCN2Conv(512, alpha=0.5, beta=0.06765864847381486)\n    (10): GCN2Conv(512, alpha=0.5, beta=0.06169356900533996)\n    (11): GCN2Conv(512, alpha=0.5, beta=0.056695343676545294)\n    (12): GCN2Conv(512, alpha=0.5, beta=0.052446475372542524)\n    (13): GCN2Conv(512, alpha=0.5, beta=0.04879016416943205)\n    (14): GCN2Conv(512, alpha=0.5, beta=0.045610511252052274)\n    (15): GCN2Conv(512, alpha=0.5, beta=0.04281999718292814)\n    (16): GCN2Conv(512, alpha=0.5, beta=0.04035129552356745)\n    (17): GCN2Conv(512, alpha=0.5, beta=0.038151765964376326)\n    (18): GCN2Conv(512, alpha=0.5, beta=0.03617965657750226)\n    (19): GCN2Conv(512, alpha=0.5, beta=0.03440142671733232)\n    (20): GCN2Conv(512, alpha=0.5, beta=0.03278982282299097)\n    (21): GCN2Conv(512, alpha=0.5, beta=0.03132247112904107)\n    (22): GCN2Conv(512, alpha=0.5, beta=0.029980832211935857)\n    (23): GCN2Conv(512, alpha=0.5, beta=0.028749413285985792)\n    (24): GCN2Conv(512, alpha=0.5, beta=0.02761516703297339)\n    (25): GCN2Conv(512, alpha=0.5, beta=0.026567027384721706)\n    (26): GCN2Conv(512, alpha=0.5, beta=0.025595547188963723)\n    (27): GCN2Conv(512, alpha=0.5, beta=0.024692612590371414)\n    (28): GCN2Conv(512, alpha=0.5, beta=0.023851215822179847)\n    (29): GCN2Conv(512, alpha=0.5, beta=0.023065272930996188)\n    (30): GCN2Conv(512, alpha=0.5, beta=0.022329476398088577)\n    (31): GCN2Conv(512, alpha=0.5, beta=0.021639175103481248)\n    (32): GCN2Conv(512, alpha=0.5, beta=0.02099027589183583)\n    (33): GCN2Conv(512, alpha=0.5, beta=0.020379162336652046)\n    (34): GCN2Conv(512, alpha=0.5, beta=0.01980262729617973)\n    (35): GCN2Conv(512, alpha=0.5, beta=0.01925781660441452)\n    (36): GCN2Conv(512, alpha=0.5, beta=0.018742181809740664)\n    (37): GCN2Conv(512, alpha=0.5, beta=0.0182534403093503)\n    (38): GCN2Conv(512, alpha=0.5, beta=0.01778954156349824)\n    (39): GCN2Conv(512, alpha=0.5, beta=0.017348638334613073)\n    (40): GCN2Conv(512, alpha=0.5, beta=0.016929062100447975)\n    (41): GCN2Conv(512, alpha=0.5, beta=0.016529301951210506)\n    (42): GCN2Conv(512, alpha=0.5, beta=0.01614798640798194)\n    (43): GCN2Conv(512, alpha=0.5, beta=0.01578386770126195)\n    (44): GCN2Conv(512, alpha=0.5, beta=0.015435808129839248)\n    (45): GCN2Conv(512, alpha=0.5, beta=0.01510276818575665)\n    (46): GCN2Conv(512, alpha=0.5, beta=0.014783796184236912)\n    (47): GCN2Conv(512, alpha=0.5, beta=0.014478019180653235)\n    (48): GCN2Conv(512, alpha=0.5, beta=0.014184634991956381)\n    (49): GCN2Conv(512, alpha=0.5, beta=0.013902905168991434)\n    (50): GCN2Conv(512, alpha=0.5, beta=0.013632148790057627)\n    (51): GCN2Conv(512, alpha=0.5, beta=0.01337173696588924)\n    (52): GCN2Conv(512, alpha=0.5, beta=0.013121087962697276)\n    (53): GCN2Conv(512, alpha=0.5, beta=0.012879662863661238)\n    (54): GCN2Conv(512, alpha=0.5, beta=0.01264696170076739)\n    (55): GCN2Conv(512, alpha=0.5, beta=0.01242251999855711)\n    (56): GCN2Conv(512, alpha=0.5, beta=0.012205905679503764)\n    (57): GCN2Conv(512, alpha=0.5, beta=0.011996716287631506)\n    (58): GCN2Conv(512, alpha=0.5, beta=0.011794576492836877)\n    (59): GCN2Conv(512, alpha=0.5, beta=0.01159913584335194)\n    (60): GCN2Conv(512, alpha=0.5, beta=0.01141006673803096)\n    (61): GCN2Conv(512, alpha=0.5, beta=0.011227062593783402)\n    (62): GCN2Conv(512, alpha=0.5, beta=0.011049836186584935)\n    (63): GCN2Conv(512, alpha=0.5, beta=0.010878118147183069)\n  )\n  (norm): LayerNorm((512,), eps=1e-05, elementwise_affine=True)\n  (dropout): Dropout(p=0.5, inplace=False)\n  (fc1): Linear(in_features=512, out_features=512, bias=True)\n  (fc2): Linear(in_features=512, out_features=2, bias=True)\n)</pre>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "PKri",
+      "code_hash": "7f82033c2ad99cb2a9e2fbb4ba94e75a",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Xref",
+      "code_hash": "94201b2879b39c8df5c737965ec2fafd",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "SFPL",
+      "code_hash": "bbc8636c1ca5d4fa3b9a86a87f104aa0",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": [
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "Accuracy on test: 0.9835629878598983\n"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "Balanced accuracy on test: 0.9900161602938599\n"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "\n              precision    recall  f1-score   support\n\n           0      1.000     0.981     0.990    443138\n           1      0.886     0.999     0.939     64436\n\n    accuracy                          0.984    507574\n   macro avg      0.943     0.990     0.965    507574\nweighted avg      0.985     0.984     0.984    507574\n\n"
+        }
+      ]
+    }
+  ]
+}

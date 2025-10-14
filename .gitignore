@@ -12,5 +12,6 @@ wheels/
 # Hides Environment variables
 .env
 
-# Prevent uploading dataset
+# Prevent uploading dataset and model files
 dataset/
+models/

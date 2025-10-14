@@ -77,8 +77,8 @@ class GraphBuilder:
 
     def _setup_duckdb(self):
         self.conn = duckdb.connect()
-        self.conn.execute("SET threads=4")
         self.conn.execute("SET temp_directory = '/tmp'")
+        # self.conn.execute("SET threads=4")
 
     def _cleanup(self):
         if self.conn:
@@ -283,7 +283,6 @@ class GraphBuilder:
         return x, y
 
     def _create_edges(self, data_table):
-        print("EDGE!")
         edge_query = f"""
         WITH grouped_data AS (
             SELECT node_id, proto, service, state,
