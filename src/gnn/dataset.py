@@ -4,9 +4,9 @@ import os.path as osp
 import gdown
 
 import torch
-from .graph_builder import GraphBuilder
 from torch_geometric.data import Dataset, extract_zip
 
+from .graph_builder_gcn import GraphBuilderGCN
 
 # remember to change this every time you modify the upstream data pipeline
 GDRIVE_URL = "https://drive.google.com/file/d/1dTKTmNuhUm4ys5H9GXo_0i22joS73HWd/view?usp=drive_link"
