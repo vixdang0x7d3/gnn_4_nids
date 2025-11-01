@@ -1,97 +1,130 @@
+from functools import wraps
 from typing import Callable
 
 import numpy as np
 import pyarrow as pa
-
-import duckdb
-from duckdb import (
-    ColumnExpression,
-    FunctionExpression,
-    StarExpression,
-)
+import pyarrow.compute as pc
 
 from imblearn.over_sampling import SMOTE
 from sklearn.preprocessing import StandardScaler
 
 
-def select_features(
-    rel: duckdb.DuckDBPyRelation,
-    conn: duckdb.DuckDBPyConnection,
-    feature_attrs: list[str],
-) -> duckdb.DuckDBPyRelation:
-    raise NotImplemented
+Transformer = Callable[pa.Table, pa.Table]
 
 
-def std_scale(
-    rel: duckdb.DuckDBPyRelation,
-    conn: duckdb.DuckDBPyConnection,
+def std_scaler(
+    fitted_scaler: StandardScaler,
+) -> Transformer:
+    return _make_transformer(
+        _std_scale,
+        "std_scale",
+        fitted_scaler=fitted_scaler,
+    )
+
+
+def groupwise_smoter() -> Transformer:
+    return _make_transformer(
+        _groupwise_smote,
+        "groupwise_smote",
+    )
+
+
+def _make_transformer(func, name: str, **defaults):
+    @wraps(func)
+    def transform_fn(table: pa.Table, **overwrite_kwargs):
+        params = {**defaults, **overwrite_kwargs}
+        result = func(table=table, **params)
+        if isinstance(result, tuple) and isinstance(result[0], pa.Table):
+            table_out, fitted = result
+            transform_fn.fitted_obj = fitted
+            return table_out
+        else:
+            return result
+
+    transform_fn.attrs = {"name": name, "params": defaults}
+
+    return transform_fn
+
+
+def _std_scale(
+    table: pa.Table,
     feature_attrs: list[str],
     fitted_scaler: StandardScaler | None = None,
-) -> duckdb.DuckDBPyRelation:
-    raise NotImplemented
+) -> tuple[pa.Table, StandardScaler]:
+    scaler = fitted_scaler or StandardScaler()
 
+    feature_arrays = [table[col].to_numpy() for col in feature_attrs]
+    X = np.column_stack(feature_arrays)
 
-def groupwise_smote(
-    rel: duckdb.DuckDBPyRelation,
-    conn: duckdb.DuckDBPyConnection,
-    feature_attrs,
-    group_attrs,
-    label,
-    normal_class,
-    strategy,
-    k_neighbors,
-    random_state,
-    min_samples,
-):
-    # Define column expresions
-    group_exprs = [ColumnExpression(col) for col in group_attrs]
-    feature_exprs = [ColumnExpression(col) for col in feature_attrs]
-    label_expr = ColumnExpression(label)
-
-    # Get valid groups
-    groups_rel = (
-        rel.filter(label_expr != normal_class)
-        .aggregate(
-            group_expr=", ".join(group_attrs),
-            aggr_expr="COUNT(*)",
-        )
-        .filter(ColumnExpression("count") >= min_samples)
-        .select(*group_exprs)
+    X_scaled = (
+        scaler.transform(X) if fitted_scaler is not None else scaler.fit_transform(X)
     )
-    groups_arrow = groups_rel.arrow()
 
-    print(f"Processing {len(groups_arrow)} triplet groups...")
+    schema = table.schema
+    arrays = []
+
+    for field in schema:
+        col_name = field.name
+        if col_name in feature_attrs:
+            # Scaled feature - preserve original type
+            idx = feature_attrs.index(col_name)
+            scaled_array = pa.array(X_scaled[:, idx], type=field.type)
+            arrays.append(scaled_array)
+        else:
+            arrays.append(table[col_name])
+
+    result_table = pa.Table.from_arrays(arrays, schema=schema)
+
+    return result_table
+
+
+def _groupwise_smote(
+    table: pa.Table,
+    feature_attrs: list[str],
+    group_attrs: list[str],
+    min_samples: int,
+    index="index",
+    label: str = "multiclass_label",
+    normal_class: str = "normal",
+    k_neighbors: int = 6,
+    random_state: int = 42,
+    strategy: str = "max",
+) -> pa.Table:
+    valid_groups = (
+        table.filter(pc.field(label) != pc.scalar("normal"))
+        .group_by(group_attrs)
+        .aggregate(["index", "count"])
+        .filter(pc.field("index_count") > pc.scalar(min_samples))
+        .select(feature_attrs)
+    )
+
+    print(f"Processing {len(valid_groups)} triplet groups...")
 
     resampled_batches = []
     skipped = 0
 
     # Process each group
-    for i in range(len(groups_arrow)):
+    for i in range(len(valid_groups)):
         conditions = []
         group_values = {}
 
-        for attr in group_attrs:
-            val = groups_arrow[attr][i].as_py()
-            group_values[attr] = val
-            col_expr = ColumnExpression(attr)
-            conditions.append(col_expr == val)
+        for col in group_attrs:
+            val = valid_groups[col][i].as_py()
+            group_values[col] = val
+            conditions.append(pc.field(col) == pc.scalar(val))
 
         filter_expr = conditions[0]
-        for cond in conditions[1:]:
+        for cond in conditions:
             filter_expr = filter_expr & cond
 
         # Get normal samples
-        normal_rel = rel.filter(filter_expr & (label_expr == normal_class)).select(
-            *feature_exprs, *group_exprs, label_expr
-        )
+        normal_arrow = valid_groups.filter(
+            filter_expr & (pc.field(label) == pc.scalar(normal_class))
+        ).select(feature_attrs + group_attrs + [label])
 
-        normal_arrow = normal_rel.arrow()
-
-        attack_rel = rel.filter(filter_expr & (label_expr != normal_class)).select(
-            *feature_exprs, *group_exprs, label_expr
-        )
-
-        attack_arrow = attack_rel.arrow()
+        attack_arrow = valid_groups.filter(
+            filter_expr & (pc.field(label) != pc.scalar(normal_class))
+        ).select(feature_attrs + group_attrs + [label])
 
         if len(attack_arrow) < min_samples:
             resampled_batches.append(pa.concat_tables([normal_arrow, attack_arrow]))
@@ -178,4 +211,4 @@ def groupwise_smote(
     # Concatenate all groups
     result_arrow = pa.concat_tables(resampled_batches)
 
-    return duckdb.from_arrow(result_arrow)
+    return result_arrow

@@ -3,30 +3,29 @@ import torch
 import numpy as np
 
 import duckdb
-from duckdb import ColumnExpression
 
 
-def load_data(conn, data_path, node_attrs, edge_attrs, label):
+def load_data(
+    conn: duckdb.DuckDBPyConnection,
+    data_path: str,
+    node_attrs: list[str],
+    edge_attrs: list[str],
+    label: str,
+    index_name: str = "index",
+):
     rel = conn.read_parquet(data_path)
-    rel = rel.row_number(window_spec="over () as index", projected_columns="*")
-
-    columns = [
-        ColumnExpression("index"),
-        ColumnExpression(label),
-        *(ColumnExpression(attr) for attr in node_attrs),
-        *(ColumnExpression(attr) for attr in edge_attrs),
-    ]
-
-    return rel.select(*columns)
+    rel = rel.row_number(window_spec=f"over () as {index_name}", projected_columns="*")
+    return rel.select(", ".join([index_name, label, *node_attrs, *edge_attrs]))
 
 
-def extract_nodes(rel, node_attrs, label):
-    columns = [
-        ColumnExpression(label),
-        *(ColumnExpression(attr) for attr in node_attrs),
-    ]
-
-    arrow_table = rel.select(*columns).arrow()
+def extract_nodes(
+    rel: duckdb.DuckDBPyRelation,
+    node_attrs: list[str],
+    label: str,
+    index: str = "index",
+):
+    # Filter relevant columns and convert to arrow table
+    arrow_table = rel.order("index").select(", ".join([label, *node_attrs])).arrow()
 
     # Convert to numpy
     feature_arrays = [arrow_table.column(attr).to_numpy() for attr in node_attrs]
@@ -38,13 +37,14 @@ def extract_nodes(rel, node_attrs, label):
     return x, y
 
 
-def build_edges(rel, edge_attrs, n_neighbors=2):
-    columns = [
-        ColumnExpression("index"),
-        *(ColumnExpression(attr) for attr in edge_attrs),
-    ]
+def build_edges(
+    rel: duckdb.DuckDBPyRelation,
+    edge_attrs: list[str],
+    index: str = "index",
+    n_neighbors: int = 2,
+):
+    arrow_table = rel.order("index").select(", ".join([index, *edge_attrs])).arrow()
 
-    arrow_table = rel.select(*columns).arrow()
     if arrow_table.num_rows == 0:
         return torch.empty((2, 0), dtype=torch.long)
 
@@ -96,30 +96,3 @@ def build_edges(rel, edge_attrs, n_neighbors=2):
     edge_index = torch.tensor([sources, targets], dtype=torch.long)
 
     return edge_index
-
-
-if __name__ == "__main__":
-    data_path = "~/works/gnn_4_nids/data/NB15/raw/nb15_train.parquet"
-    conn = duckdb.connect()
-
-    node_attrs = [
-        "min_max_sttl",
-        "min_max_dur",
-        "min_max_dintpkt",
-        "min_max_sintpkt",
-        "min_max_ct_dst_sport_ltm",
-        "min_max_tcprtt",
-        "min_max_sbytes",
-        "min_max_dbytes",
-        "min_max_smeansz",
-        "min_max_dmeansz",
-        "min_max_sload",
-        "min_max_dload",
-        "min_max_spkts",
-        "min_max_dpkts",
-    ]
-
-    edge_attrs = ["proto", "state", "service"]
-    raw_rel = load_data(conn, data_path, node_attrs, edge_attrs, label="label")
-    x, y = extract_nodes(raw_rel, node_attrs, "label")
-    edge_index = build_edges(raw_rel, edge_attrs)
