@@ -1,0 +1,395 @@
+{
+  "version": "1",
+  "metadata": {
+    "marimo_version": "0.17.7"
+  },
+  "cells": [
+    {
+      "id": "Hbol",
+      "code_hash": "f89e4bed1a32c93424008b44079c74ad",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "MJUe",
+      "code_hash": "d8efe80cf60c5274072c5904b03b607d",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "PyzI",
+      "code_hash": "58f4818c95ef0a6a6124caf5e9210e64",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"define-settings\">Define settings</h3></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "vblA",
+      "code_hash": "24f9098f19b50e70069729c1a7ca6ddb",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "fZZk",
+      "code_hash": "c876cfc8038ff97120276d199e2aae85",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"load-data\">Load data</h3></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "cMlC",
+      "code_hash": "521a8ddbc2030f1b31e3cf404dc8233b",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "OCmD",
+      "code_hash": "d666f008fa660937cf701cc8efa454a5",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "sUIW",
+      "code_hash": "04d3b4d4c13545c865465556c743e43e",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": [
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "Processing 10 triplet groups...\n",
+          "mimetype": "text/plain"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "Skipped 1 groups (too few samples or errors)\n",
+          "mimetype": "text/plain"
+        }
+      ]
+    },
+    {
+      "id": "sLjA",
+      "code_hash": "dcf523045c3753796536b15dbc01e231",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"build-input-graphs\">Build input graphs</h3></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "pssH",
+      "code_hash": "0c08be5710202e2f86268774d78dc904",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "VrKi",
+      "code_hash": "fecafde2c8d2ece697181b3b2708d7be",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"define-gcn-model\">Define GCN model</h3></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "jsii",
+      "code_hash": "0082773f804ab059fae9f152988cfee8",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "DPvo",
+      "code_hash": "25cb1de18f04a9fb8f22378fc038c985",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"configure-class-weights-optimizer-and-loss-function\">Configure class weights, optimizer and loss function</h3></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "rbxn",
+      "code_hash": "4bf773dc1ec8e8c964ee6c1d0f3e42b5",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Obts",
+      "code_hash": "b7868b28cbd4e8d9e3ddbb0974520fec",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"train-model\">Train model</h3></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "cUnQ",
+      "code_hash": "35fde2f0529e3a7aa81a1104016600d0",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": [
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "models/gcn_nb15_multi_smotek6m100_n2_conv64_hidd512.h5\n Epoch  |  Batch  |  Train Loss  |  Val Loss  |  Val Acc  |  Elapsed \n----------------------------------------------------------------------\n",
+          "mimetype": "text/plain"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "   1    |   255   |   1.533719   |     -      |     -     |  135.87  \n----------------------------------------------------------------------\n",
+          "mimetype": "text/plain"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "   1    |    -    |   1.533719   |  0.671916  |   93.05   |  154.01  \n----------------------------------------------------------------------\n",
+          "mimetype": "text/plain"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "   2    |   255   |   1.141898   |     -      |     -     |  144.09  \n----------------------------------------------------------------------\n",
+          "mimetype": "text/plain"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "   2    |    -    |   1.141898   |  0.612881  |   93.91   |  161.80  \n----------------------------------------------------------------------\n",
+          "mimetype": "text/plain"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "   3    |   255   |   0.959742   |     -      |     -     |  144.38  \n----------------------------------------------------------------------\n",
+          "mimetype": "text/plain"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "   3    |    -    |   0.959742   |  0.576285  |   94.39   |  163.01  \n----------------------------------------------------------------------\n",
+          "mimetype": "text/plain"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "   4    |   255   |   0.883490   |     -      |     -     |  144.89  \n----------------------------------------------------------------------\n",
+          "mimetype": "text/plain"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "   4    |    -    |   0.883490   |  0.560700  |   94.63   |  162.67  \n----------------------------------------------------------------------\n",
+          "mimetype": "text/plain"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "   5    |   255   |   0.845331   |     -      |     -     |  144.81  \n----------------------------------------------------------------------\n",
+          "mimetype": "text/plain"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "   5    |    -    |   0.845331   |  0.524694  |   94.78   |  163.02  \n----------------------------------------------------------------------\n",
+          "mimetype": "text/plain"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "   6    |   255   |   0.822293   |     -      |     -     |  145.29  \n----------------------------------------------------------------------\n",
+          "mimetype": "text/plain"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "   6    |    -    |   0.822293   |  0.517262  |   94.89   |  163.49  \n----------------------------------------------------------------------\n",
+          "mimetype": "text/plain"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "   7    |   255   |   0.803740   |     -      |     -     |  144.61  \n----------------------------------------------------------------------\n",
+          "mimetype": "text/plain"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "   7    |    -    |   0.803740   |  0.547595  |   94.74   |  162.74  \n----------------------------------------------------------------------\n",
+          "mimetype": "text/plain"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "   8    |   255   |   0.786300   |     -      |     -     |  144.53  \n----------------------------------------------------------------------\n",
+          "mimetype": "text/plain"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "   8    |    -    |   0.786300   |  0.528038  |   94.81   |  163.71  \n----------------------------------------------------------------------\n",
+          "mimetype": "text/plain"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "   9    |   255   |   0.772902   |     -      |     -     |  145.06  \n----------------------------------------------------------------------\n",
+          "mimetype": "text/plain"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "   9    |    -    |   0.772902   |  0.510957  |   94.98   |  163.39  \n----------------------------------------------------------------------\n",
+          "mimetype": "text/plain"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "  10    |   255   |   0.760885   |     -      |     -     |  145.17  \n----------------------------------------------------------------------\n",
+          "mimetype": "text/plain"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "  10    |    -    |   0.760885   |  0.506688  |   94.96   |  163.29  \n----------------------------------------------------------------------\n",
+          "mimetype": "text/plain"
+        }
+      ]
+    },
+    {
+      "id": "DiSQ",
+      "code_hash": "cd322527ebd769e70f12b7d67a2158ea",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"basic-evaluation\">Basic evaluation</h3></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "qHQA",
+      "code_hash": "a64dfabfe83eb4f44e6f354648bc2eec",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": [
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "Accuracy on test: 0.9496392541831163\nBalanced accuracy on test: 0.539144148177464\n",
+          "mimetype": "text/plain"
+        },
+        {
+          "type": "stream",
+          "name": "stdout",
+          "text": "\n              precision    recall  f1-score   support\n\n           0      1.000     0.980     0.990    443512\n           1      0.008     0.964     0.015        28\n           2      0.036     0.645     0.068       462\n           3      0.038     0.680     0.073       306\n           4      0.074     0.279     0.117       527\n           5      0.211     0.175     0.191      2841\n           6      0.171     0.141     0.154      3293\n           7      0.475     0.237     0.316      4934\n           8      0.794     0.316     0.452      8952\n           9      0.979     0.974     0.977     43259\n\n    accuracy                          0.950    508114\n   macro avg      0.379     0.539     0.335    508114\nweighted avg      0.977     0.950     0.961    508114\n\n",
+          "mimetype": "text/plain"
+        }
+      ]
+    }
+  ]
+}

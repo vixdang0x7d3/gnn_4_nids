@@ -1,68 +1,35 @@
-from functools import wraps
-from typing import Callable
-
 import numpy as np
 import pyarrow as pa
 import pyarrow.compute as pc
 
 from imblearn.over_sampling import SMOTE
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
 
 
-Transformer = Callable[pa.Table, pa.Table]
-
-
-def std_scaler(
-    fitted_scaler: StandardScaler,
-) -> Transformer:
-    return _make_transformer(
-        _std_scale,
-        "std_scale",
-        fitted_scaler=fitted_scaler,
-    )
-
-
-def groupwise_smoter() -> Transformer:
-    return _make_transformer(
-        _groupwise_smote,
-        "groupwise_smote",
-    )
-
-
-def _make_transformer(func, name: str, **defaults):
-    @wraps(func)
-    def transform_fn(table: pa.Table, **overwrite_kwargs):
-        params = {**defaults, **overwrite_kwargs}
-        result = func(table=table, **params)
-        if isinstance(result, tuple) and isinstance(result[0], pa.Table):
-            table_out, fitted = result
-            transform_fn.fitted_obj = fitted
-            return table_out
-        else:
-            return result
-
-    transform_fn.attrs = {"name": name, "params": defaults}
-
-    return transform_fn
-
-
-def _std_scale(
+def minmax_scale(
     table: pa.Table,
     feature_attrs: list[str],
-    fitted_scaler: StandardScaler | None = None,
-) -> tuple[pa.Table, StandardScaler]:
-    scaler = fitted_scaler or StandardScaler()
+    fitted_scaler: MinMaxScaler | None = None,
+) -> tuple[pa.Table, MinMaxScaler]:
+    """Apply standard scaling to features in PyArrow Table"""
+
+    scaler = fitted_scaler or MinMaxScaler()
 
     feature_arrays = [table[col].to_numpy() for col in feature_attrs]
     X = np.column_stack(feature_arrays)
 
-    X_scaled = (
-        scaler.transform(X) if fitted_scaler is not None else scaler.fit_transform(X)
+    X_scaled = scaler.transform(X) if fitted_scaler else scaler.fit_transform(X)
+
+    schema = pa.schema(
+        [
+            (field.name, pa.float64())
+            if field.name in feature_attrs
+            else (field.name, field.type)
+            for field in table.schema
+        ]
     )
 
-    schema = table.schema
     arrays = []
-
     for field in schema:
         col_name = field.name
         if col_name in feature_attrs:
@@ -75,27 +42,36 @@ def _std_scale(
 
     result_table = pa.Table.from_arrays(arrays, schema=schema)
 
-    return result_table
+    return result_table, scaler
 
 
-def _groupwise_smote(
+def groupwise_smote(
     table: pa.Table,
     feature_attrs: list[str],
     group_attrs: list[str],
     min_samples: int,
     index="index",
     label: str = "multiclass_label",
-    normal_class: str = "normal",
+    normal_class: int = 0,
     k_neighbors: int = 6,
     random_state: int = 42,
     strategy: str = "max",
 ) -> pa.Table:
+    """
+    Apply SMOTE within each group defined by group_attrs.
+
+    Note: This function will create new synthetic samples, which means
+    the sequential index will be lost. After SMOTE, a new sequential
+    index should be created if needed.
+    """
+
+    # print(table)
+
     valid_groups = (
-        table.filter(pc.field(label) != pc.scalar("normal"))
+        table.filter(pc.field(label) != pc.scalar(0))
         .group_by(group_attrs)
-        .aggregate(["index", "count"])
+        .aggregate([("index", "count")])
         .filter(pc.field("index_count") > pc.scalar(min_samples))
-        .select(feature_attrs)
     )
 
     print(f"Processing {len(valid_groups)} triplet groups...")
@@ -114,21 +90,22 @@ def _groupwise_smote(
             conditions.append(pc.field(col) == pc.scalar(val))
 
         filter_expr = conditions[0]
-        for cond in conditions:
+        for cond in conditions[1:]:
             filter_expr = filter_expr & cond
 
         # Get normal samples
-        normal_arrow = valid_groups.filter(
+        normal_arrow = table.filter(
             filter_expr & (pc.field(label) == pc.scalar(normal_class))
         ).select(feature_attrs + group_attrs + [label])
 
-        attack_arrow = valid_groups.filter(
+        attack_arrow = table.filter(
             filter_expr & (pc.field(label) != pc.scalar(normal_class))
         ).select(feature_attrs + group_attrs + [label])
 
         if len(attack_arrow) < min_samples:
             resampled_batches.append(pa.concat_tables([normal_arrow, attack_arrow]))
             skipped += 1
+            continue
 
         # Convert to numpy for SMOTE
         X_attack = np.column_stack(
@@ -210,5 +187,30 @@ def _groupwise_smote(
 
     # Concatenate all groups
     result_arrow = pa.concat_tables(resampled_batches)
+
+    # Recreate sequential index after SMOTE (since we added synthetic samples)
+    n_rows = result_arrow.num_rows
+    new_index = pa.array(range(n_rows), type=pa.int64())
+
+    if index in result_arrow.column_names:
+        # Replace existing index
+        col_names = result_arrow.column_names
+        arrays = []
+        names = []
+
+        for name in col_names:
+            if name == index:
+                arrays.append(new_index)
+                names.append(name)
+            else:
+                arrays.append(result_arrow.column(name))
+                names.append(name)
+        result_arrow = pa.table(dict(zip(names, arrays)))
+    else:
+        arrays = [new_index] + [
+            result_arrow.column(i) for i in range(result_arrow.num_columns)
+        ]
+        names = [index] + result_arrow.column_names
+        result_arrow = pa.table(dict(zip(names, arrays)))
 
     return result_arrow

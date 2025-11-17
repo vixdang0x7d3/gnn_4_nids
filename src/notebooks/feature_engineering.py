@@ -1,22 +1,20 @@
 import marimo
 
-__generated_with = "0.15.2"
+__generated_with = "0.17.4"
 app = marimo.App(width="medium")
 
 
 @app.cell
 def _():
     import marimo as mo
+
     import sys
-    from pathlib import Path
-    return Path, sys
+    import os
 
+    import torch
 
-@app.cell
-def _(Path, sys):
-    root_dir = Path(__file__).parent.parent.parent
-    sys.path.append(str(root_dir))
-    return
+    import duckdb
+    return duckdb, mo, os, sys, torch
 
 
 @app.cell
@@ -26,40 +24,155 @@ def _(sys):
 
 
 @app.cell
+def _(sys):
+    cwd = "/home/v/works/gnn_4_nids"
+    if cwd not in sys.path:
+        sys.path.append("/home/v/works/gnn_4_nids")
+    return
+
+
+@app.cell
 def _():
-    from src.gnn.dataset import NB15Dataset, SELECTED_COLS
-    from src.gnn.graph_builder import GraphBuilder
+    from src.gnn.nb15_gcn import NB15_GCN
+    from src.gnn.const import FEATURE_ATTRIBUTES, EDGE_ATTRIBUTES, MULTICLASS_LABEL
+
+    from src.dataprep.transform import minmax_scale, groupwise_smote
+    from src.dataprep.graph_gcn import GraphGCN
+    return (
+        EDGE_ATTRIBUTES,
+        FEATURE_ATTRIBUTES,
+        GraphGCN,
+        MULTICLASS_LABEL,
+        groupwise_smote,
+        minmax_scale,
+    )
+
+
+@app.cell
+def _(os):
+    _ = os.system("ls -l ./data/NB15_preprocessed/raw")
+    return
+
+
+@app.cell
+def _(duckdb):
+    data = duckdb.read_parquet(
+        "./data/NB15_preprocessed/raw/train.parquet"
+    )
+    return (data,)
+
+
+@app.cell
+def _(data, mo):
+    _df = mo.sql(
+        f"""
+        select multiclass_label, count(*) as n_samples
+        from data
+        group by multiclass_label
+        """
+    )
+    return
+
+
+@app.cell
+def _(data, mo):
+    tripplet_group_counts = mo.sql(
+        f"""
+        SELECT CONCAT_WS(', ', proto, state, service) as group_name, COUNT(*) as group_size FROM data
+        GROUP BY proto, state, service
+        """
+    )
+    return
+
+
+@app.cell
+def _(data, mo):
+    _df = mo.sql(
+        f"""
+        SELECT 
+        	concat_ws('-', proto, state, service) as group_name,
+            COUNT(*) as total_flows,
+            SUM(CASE WHEN attack_cat = 'Exploits' THEN 1 ELSE 0 END) as exploits_count,
+            SUM(CASE WHEN attack_cat = 'Backdoors' THEN 1 ELSE 0 END) as backdoors_count,
+            SUM(CASE WHEN attack_cat = 'Shellcode' THEN 1 ELSE 0 END) as shellcode_count,
+            SUM(CASE WHEN attack_cat = 'Worms' THEN 1 ELSE 0 END) as worms_count,
+            SUM(CASE WHEN attack_cat = 'DoS' THEN 1 ELSE 0 END) as dos_count,
+            SUM(CASE WHEN attack_cat = 'Fuzzers' THEN 1 ELSE 0 END) as fuzzers_count,
+            SUM(CASE WHEN attack_cat = 'Reconnaissance' THEN 1 ELSE 0 END) as recon_count,
+            SUM(CASE WHEN attack_cat = 'Generic' THEN 1 ELSE 0 END) as generic_count,
+            SUM(CASE WHEN attack_cat = 'Normal' THEN 1 ELSE 0 END) as normal_count,
+            SUM(CASE WHEN attack_cat = 'Analysis' THEN 1 ELSE 0 END) as anal_count,
+        FROM data
+        GROUP BY proto, state, service
+        ORDER BY total_flows DESC;
+        """
+    )
+    return
+
+
+@app.cell
+def _(EDGE_ATTRIBUTES, FEATURE_ATTRIBUTES, MULTICLASS_LABEL, data):
+    raw_table = data.order('stime').select(
+        f"ROW_NUMBER() OVER () as index, {", ".join(FEATURE_ATTRIBUTES)}, {", ".join(EDGE_ATTRIBUTES)}, {MULTICLASS_LABEL}"
+    ).arrow().read_all()
+
+
+    raw_table
+    return (raw_table,)
+
+
+@app.cell
+def _(
+    EDGE_ATTRIBUTES,
+    FEATURE_ATTRIBUTES,
+    groupwise_smote,
+    minmax_scale,
+    raw_table,
+):
+    _table, fitted_scaler = minmax_scale(raw_table, FEATURE_ATTRIBUTES)
+    transformed_table = groupwise_smote(_table, FEATURE_ATTRIBUTES, EDGE_ATTRIBUTES, 100)
+    return (transformed_table,)
+
+
+@app.cell
+def _(transformed_table):
+    transformed_table
+    return
+
+
+@app.cell
+def _(mo, transformed_table):
+    _df = mo.sql(
+        f"""
+        select multiclass_label, count(*) as n_samples from transformed_table
+        group by multiclass_label
+        order by n_samples
+        """
+    )
+    return
+
+
+@app.cell
+def _(EDGE_ATTRIBUTES, FEATURE_ATTRIBUTES, GraphGCN, transformed_table):
+    inp_graph = GraphGCN(
+        transformed_table,
+        FEATURE_ATTRIBUTES,
+        EDGE_ATTRIBUTES,
+        "multiclass_label",
+        "index",
+        2,
+    )
+
+    ptg = inp_graph.build(include_labels=True)
+    return (ptg,)
+
+
+@app.cell
+def _():
     import matplotlib.pyplot as plt
     import seaborn as sns
-    import torch
     import numpy as np
-    import pandas as pd
-    from sklearn.manifold import TSNE
-    from sklearn.decomposition import PCA
-    import networkx as nx
-    from torch_geometric.utils import to_networkx
-    import warnings
-
-    warnings.filterwarnings("ignore")
-    return GraphBuilder, PCA, SELECTED_COLS, TSNE, np, nx, plt, sns, torch
-
-
-@app.cell
-def _(GraphBuilder, SELECTED_COLS):
-    gb = GraphBuilder(
-        raw_path="dataset/NB15/sample/nb15_train.parquet",
-        selected_cols=SELECTED_COLS,
-        n_neighbors=3,
-        binary=False,
-        augmentation=False,
-    )
-    return (gb,)
-
-
-@app.cell
-def _(gb):
-    ptg = gb.build_graph()
-    return (ptg,)
+    return np, plt, sns
 
 
 @app.cell
@@ -144,7 +257,6 @@ def _(np, plt, ptg, sns, torch):
         axes[1, 1].axis("off")
 
         plt.tight_layout()
-        plt.savefig("dataset_visualization.png", dpi=150, bbox_inches="tight")
         plt.show()
 
         print("Graph visualization saved as dataset_visualization.png")
@@ -153,6 +265,15 @@ def _(np, plt, ptg, sns, torch):
     else:
         print("No graph data to visualize")
     return
+
+
+@app.cell
+def _():
+    from sklearn.decomposition import PCA
+    from sklearn.manifold import TSNE
+
+    import networkx as nx
+    return PCA, TSNE, nx
 
 
 @app.cell
@@ -265,7 +386,7 @@ def _(PCA, TSNE, np, nx, plt, ptg, torch):
             struct_axes[0, 1].set_title("t-SNE Visualization")
 
         # 3. Network graph visualization (sample connected subgraph)
-        net_max = min(150, len(sample_x))  # Reduced for better connectivity density
+        net_max = min(200, len(sample_x))  # Reduced for better connectivity density
         if sampled_edges.size(1) > 0 and net_max > 10:
             # Strategy: Find edges first, then select nodes that participate in those edges
             if len(sample_x) > net_max:
@@ -446,7 +567,6 @@ def _(PCA, TSNE, np, nx, plt, ptg, torch):
             struct_axes[1, 1].set_title("Degree vs Feature Relationship")
 
         plt.tight_layout()
-        plt.savefig("graph_structure_visualization.png", dpi=150, bbox_inches="tight")
         plt.show()
 
         print(

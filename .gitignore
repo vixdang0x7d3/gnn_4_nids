@@ -15,3 +15,6 @@ wheels/
 # Prevent uploading data and model files
 data/
 models/
+
+# Hehe
+CLAUDE.md

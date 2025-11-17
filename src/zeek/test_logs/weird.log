@@ -1,0 +1,11 @@
+#separator \x09
+#set_separator	,
+#empty_field	(empty)
+#unset_field	-
+#path	weird
+#open	2025-11-17-11-42-25
+#fields	ts	uid	id.orig_h	id.orig_p	id.resp_h	id.resp_p	name	addl	notice	peer	source
+#types	time	string	addr	port	addr	port	string	string	bool	string	string
+1763273117.306576	C9yqMX3w9bb8DWKVO6	192.168.1.9	52748	146.75.45.140	443	TCP_seq_underflow_or_misorder	-	F	zeek	TCP
+1763273119.381932	CDVhLq3SCNkSWb8jC2	2402:800:6314:ef2b:ccf5:f1c1:254b:f1df	59822	2a04:4e42:65::396	443	TCP_seq_underflow_or_misorder	-	F	zeek	TCP
+#close	2025-11-17-11-42-25

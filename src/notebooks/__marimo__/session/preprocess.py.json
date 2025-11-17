@@ -1,113 +1,160 @@
 {
   "version": "1",
   "metadata": {
-    "marimo_version": "0.15.2"
+    "marimo_version": "0.17.4"
   },
   "cells": [
     {
       "id": "Hbol",
       "code_hash": "5aa763732935c3b6d5e15ebbb5462fe1",
-      "outputs": [],
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
       "console": []
     },
     {
       "id": "MJUe",
-      "code_hash": "69ce5b5daa0bd81d2e9fa1a3d3e9a3b6",
-      "outputs": [],
+      "code_hash": "56c9d84414bee138f0758322542de5bf",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
       "console": []
     },
     {
       "id": "vblA",
-      "code_hash": "4ee9d30125988d9db60abcbf600b54f2",
-      "outputs": [],
+      "code_hash": "dd2ac7f9965873bd1bfba1274466a406",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
       "console": []
     },
     {
       "id": "bkHC",
       "code_hash": "7d56b70c887c13d3c2b3deab189a47b7",
-      "outputs": [],
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<pre style='font-size: 12px'>\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n\u2502   Type    \u2502\n\u2502  varchar  \u2502\n\u251c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2524\n\u2502 nominal   \u2502\n\u2502 Binary    \u2502\n\u2502 binary    \u2502\n\u2502 Integer   \u2502\n\u2502 Timestamp \u2502\n\u2502 integer   \u2502\n\u2502 Float     \u2502\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n</pre>"
+          }
+        }
+      ],
       "console": []
     },
     {
       "id": "lEQa",
       "code_hash": "28e944d0436de976969036425e683717",
-      "outputs": [],
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
       "console": []
     },
     {
       "id": "PKri",
       "code_hash": "aca16cc02d6b5133be4c822ce29fc3ff",
-      "outputs": [],
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<marimo-ui-element object-id='PKri-0' random-id='2ebbce60-6327-d3fc-8a56-a68e9dba716c'><marimo-table data-initial-value='[]' data-label='null' data-data='&quot;[{&#92;&quot;lower(&#92;&#92;&#92;&quot;name&#92;&#92;&#92;&quot;)&#92;&quot;:&#92;&quot;srcip&#92;&quot;,&#92;&quot;type&#92;&quot;:&#92;&quot;VARCHAR&#92;&quot;},{&#92;&quot;lower(&#92;&#92;&#92;&quot;name&#92;&#92;&#92;&quot;)&#92;&quot;:&#92;&quot;sport&#92;&quot;,&#92;&quot;type&#92;&quot;:&#92;&quot;BIGINT&#92;&quot;},{&#92;&quot;lower(&#92;&#92;&#92;&quot;name&#92;&#92;&#92;&quot;)&#92;&quot;:&#92;&quot;dstip&#92;&quot;,&#92;&quot;type&#92;&quot;:&#92;&quot;VARCHAR&#92;&quot;},{&#92;&quot;lower(&#92;&#92;&#92;&quot;name&#92;&#92;&#92;&quot;)&#92;&quot;:&#92;&quot;dsport&#92;&quot;,&#92;&quot;type&#92;&quot;:&#92;&quot;BIGINT&#92;&quot;},{&#92;&quot;lower(&#92;&#92;&#92;&quot;name&#92;&#92;&#92;&quot;)&#92;&quot;:&#92;&quot;proto&#92;&quot;,&#92;&quot;type&#92;&quot;:&#92;&quot;VARCHAR&#92;&quot;},{&#92;&quot;lower(&#92;&#92;&#92;&quot;name&#92;&#92;&#92;&quot;)&#92;&quot;:&#92;&quot;state&#92;&quot;,&#92;&quot;type&#92;&quot;:&#92;&quot;VARCHAR&#92;&quot;},{&#92;&quot;lower(&#92;&#92;&#92;&quot;name&#92;&#92;&#92;&quot;)&#92;&quot;:&#92;&quot;dur&#92;&quot;,&#92;&quot;type&#92;&quot;:&#92;&quot;DOUBLE&#92;&quot;},{&#92;&quot;lower(&#92;&#92;&#92;&quot;name&#92;&#92;&#92;&quot;)&#92;&quot;:&#92;&quot;sbytes&#92;&quot;,&#92;&quot;type&#92;&quot;:&#92;&quot;BIGINT&#92;&quot;},{&#92;&quot;lower(&#92;&#92;&#92;&quot;name&#92;&#92;&#92;&quot;)&#92;&quot;:&#92;&quot;dbytes&#92;&quot;,&#92;&quot;type&#92;&quot;:&#92;&quot;BIGINT&#92;&quot;},{&#92;&quot;lower(&#92;&#92;&#92;&quot;name&#92;&#92;&#92;&quot;)&#92;&quot;:&#92;&quot;sttl&#92;&quot;,&#92;&quot;type&#92;&quot;:&#92;&quot;BIGINT&#92;&quot;}]&quot;' data-total-rows='49' data-total-columns='2' data-max-columns='50' data-banner-text='&quot;&quot;' data-pagination='true' data-page-size='10' data-field-types='[[&quot;lower(&#92;&quot;name&#92;&quot;)&quot;,[&quot;string&quot;,&quot;object&quot;]],[&quot;type&quot;,[&quot;string&quot;,&quot;object&quot;]]]' data-show-filters='true' data-show-download='true' data-show-column-summaries='true' data-show-data-types='true' data-show-page-size-selector='true' data-show-column-explorer='true' data-show-chart-builder='true' data-row-headers='[]' data-has-stable-row-id='false' data-lazy='false' data-preload='false'></marimo-table></marimo-ui-element>"
+          }
+        }
+      ],
       "console": []
     },
     {
       "id": "Xref",
-      "code_hash": "8e07b508ce062a629af6a98ae90e68f8",
-      "outputs": [],
+      "code_hash": "1898788fb8210e386ded7bd1616063fe",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
       "console": []
     },
     {
       "id": "SFPL",
-      "code_hash": "06248791ec28bc5522ecda45dc5d3add",
-      "outputs": [],
+      "code_hash": "24e124bf489fc970b8ced34e287123a2",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
       "console": []
     },
     {
       "id": "BYtC",
-      "code_hash": "ef267eb28f073c5f9170671405d1f19b",
-      "outputs": [],
-      "console": []
-    },
-    {
-      "id": "RGSE",
-      "code_hash": "bfcc94694e975c369fde75f8ce830e8e",
-      "outputs": [],
-      "console": []
-    },
-    {
-      "id": "Kclp",
-      "code_hash": "206607b46980da2a3ea6ea52f9faacdf",
-      "outputs": [],
-      "console": []
-    },
-    {
-      "id": "emfo",
-      "code_hash": "283b4aa8c4aaace3b821c01741d70e1e",
-      "outputs": [],
-      "console": []
-    },
-    {
-      "id": "Hstk",
-      "code_hash": "eb3699bbee22a06231ac411385f9a7ca",
-      "outputs": [],
-      "console": []
-    },
-    {
-      "id": "nWHF",
-      "code_hash": "d154565e8b7f618032262298066b795f",
-      "outputs": [],
-      "console": []
-    },
-    {
-      "id": "iLit",
-      "code_hash": "bbdea925b97def1937c9a412730ae9b2",
-      "outputs": [],
+      "code_hash": "7822934aaa76ff4892c1a16ab5f75c66",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<marimo-ui-element object-id='BYtC-0' random-id='22f729e0-9ba8-6aef-f052-7b6fc0349858'><marimo-table data-initial-value='[]' data-label='null' data-data='&quot;[{&#92;&quot;id&#92;&quot;:1,&#92;&quot;srcip&#92;&quot;:&#92;&quot;59.166.0.0&#92;&quot;,&#92;&quot;sport&#92;&quot;:1390,&#92;&quot;dstip&#92;&quot;:&#92;&quot;149.171.126.6&#92;&quot;,&#92;&quot;dsport&#92;&quot;:53,&#92;&quot;proto&#92;&quot;:&#92;&quot;udp&#92;&quot;,&#92;&quot;state&#92;&quot;:&#92;&quot;con&#92;&quot;,&#92;&quot;dur&#92;&quot;:0.001055,&#92;&quot;sbytes&#92;&quot;:132,&#92;&quot;dbytes&#92;&quot;:164,&#92;&quot;sttl&#92;&quot;:31,&#92;&quot;dttl&#92;&quot;:29,&#92;&quot;sloss&#92;&quot;:0,&#92;&quot;dloss&#92;&quot;:0,&#92;&quot;service&#92;&quot;:&#92;&quot;dns&#92;&quot;,&#92;&quot;sload&#92;&quot;:500473.9375,&#92;&quot;dload&#92;&quot;:621800.9375,&#92;&quot;spkts&#92;&quot;:2,&#92;&quot;dpkts&#92;&quot;:2,&#92;&quot;swin&#92;&quot;:0,&#92;&quot;dwin&#92;&quot;:0,&#92;&quot;stcpb&#92;&quot;:0,&#92;&quot;dtcpb&#92;&quot;:0,&#92;&quot;smeansz&#92;&quot;:66,&#92;&quot;dmeansz&#92;&quot;:82,&#92;&quot;trans_depth&#92;&quot;:0,&#92;&quot;res_bdy_len&#92;&quot;:0,&#92;&quot;sjit&#92;&quot;:0.0,&#92;&quot;djit&#92;&quot;:0.0,&#92;&quot;stime&#92;&quot;:&#92;&quot;2015-01-22T11:50:14.000Z&#92;&quot;,&#92;&quot;ltime&#92;&quot;:&#92;&quot;2015-01-22T11:50:14.000Z&#92;&quot;,&#92;&quot;sintpkt&#92;&quot;:0.017,&#92;&quot;dintpkt&#92;&quot;:0.013,&#92;&quot;tcprtt&#92;&quot;:0.0,&#92;&quot;synack&#92;&quot;:0.0,&#92;&quot;ackdat&#92;&quot;:0.0,&#92;&quot;is_sm_ips_ports&#92;&quot;:0,&#92;&quot;ct_state_ttl&#92;&quot;:0,&#92;&quot;ct_flw_http_mthd&#92;&quot;:0,&#92;&quot;is_ftp_login&#92;&quot;:0,&#92;&quot;ct_ftp_cmd&#92;&quot;:0,&#92;&quot;ct_srv_src&#92;&quot;:3,&#92;&quot;ct_srv_dst&#92;&quot;:7,&#92;&quot;ct_dst_ltm&#92;&quot;:1,&#92;&quot;ct_src_ltm&#92;&quot;:3,&#92;&quot;ct_src_dport_ltm&#92;&quot;:1,&#92;&quot;ct_dst_sport_ltm&#92;&quot;:1,&#92;&quot;ct_dst_src_ltm&#92;&quot;:1,&#92;&quot;attack_cat&#92;&quot;:&#92;&quot;Normal&#92;&quot;,&#92;&quot;label&#92;&quot;:0},{&#92;&quot;id&#92;&quot;:2,&#92;&quot;srcip&#92;&quot;:&#92;&quot;59.166.0.0&#92;&quot;,&#92;&quot;sport&#92;&quot;:33661,&#92;&quot;dstip&#92;&quot;:&#92;&quot;149.171.126.9&#92;&quot;,&#92;&quot;dsport&#92;&quot;:1024,&#92;&quot;proto&#92;&quot;:&#92;&quot;udp&#92;&quot;,&#92;&quot;state&#92;&quot;:&#92;&quot;con&#92;&quot;,&#92;&quot;dur&#92;&quot;:0.036133,&#92;&quot;sbytes&#92;&quot;:528,&#92;&quot;dbytes&#92;&quot;:304,&#92;&quot;sttl&#92;&quot;:31,&#92;&quot;dttl&#92;&quot;:29,&#92;&quot;sloss&#92;&quot;:0,&#92;&quot;dloss&#92;&quot;:0,&#92;&quot;service&#92;&quot;:&#92;&quot;unknown&#92;&quot;,&#92;&quot;sload&#92;&quot;:87676.08594,&#92;&quot;dload&#92;&quot;:50480.17188,&#92;&quot;spkts&#92;&quot;:4,&#92;&quot;dpkts&#92;&quot;:4,&#92;&quot;swin&#92;&quot;:0,&#92;&quot;dwin&#92;&quot;:0,&#92;&quot;stcpb&#92;&quot;:0,&#92;&quot;dtcpb&#92;&quot;:0,&#92;&quot;smeansz&#92;&quot;:132,&#92;&quot;dmeansz&#92;&quot;:76,&#92;&quot;trans_depth&#92;&quot;:0,&#92;&quot;res_bdy_len&#92;&quot;:0,&#92;&quot;sjit&#92;&quot;:9.89101,&#92;&quot;djit&#92;&quot;:10.682733,&#92;&quot;stime&#92;&quot;:&#92;&quot;2015-01-22T11:50:14.000Z&#92;&quot;,&#92;&quot;ltime&#92;&quot;:&#92;&quot;2015-01-22T11:50:14.000Z&#92;&quot;,&#92;&quot;sintpkt&#92;&quot;:7.005,&#92;&quot;dintpkt&#92;&quot;:7.564333,&#92;&quot;tcprtt&#92;&quot;:0.0,&#92;&quot;synack&#92;&quot;:0.0,&#92;&quot;ackdat&#92;&quot;:0.0,&#92;&quot;is_sm_ips_ports&#92;&quot;:0,&#92;&quot;ct_state_ttl&#92;&quot;:0,&#92;&quot;ct_flw_http_mthd&#92;&quot;:0,&#92;&quot;is_ftp_login&#92;&quot;:0,&#92;&quot;ct_ftp_cmd&#92;&quot;:0,&#92;&quot;ct_srv_src&#92;&quot;:2,&#92;&quot;ct_srv_dst&#92;&quot;:4,&#92;&quot;ct_dst_ltm&#92;&quot;:2,&#92;&quot;ct_src_ltm&#92;&quot;:3,&#92;&quot;ct_src_dport_ltm&#92;&quot;:1,&#92;&quot;ct_dst_sport_ltm&#92;&quot;:1,&#92;&quot;ct_dst_src_ltm&#92;&quot;:2,&#92;&quot;attack_cat&#92;&quot;:&#92;&quot;Normal&#92;&quot;,&#92;&quot;label&#92;&quot;:0},{&#92;&quot;id&#92;&quot;:3,&#92;&quot;srcip&#92;&quot;:&#92;&quot;59.166.0.6&#92;&quot;,&#92;&quot;sport&#92;&quot;:1464,&#92;&quot;dstip&#92;&quot;:&#92;&quot;149.171.126.7&#92;&quot;,&#92;&quot;dsport&#92;&quot;:53,&#92;&quot;proto&#92;&quot;:&#92;&quot;udp&#92;&quot;,&#92;&quot;state&#92;&quot;:&#92;&quot;con&#92;&quot;,&#92;&quot;dur&#92;&quot;:0.001119,&#92;&quot;sbytes&#92;&quot;:146,&#92;&quot;dbytes&#92;&quot;:178,&#92;&quot;sttl&#92;&quot;:31,&#92;&quot;dttl&#92;&quot;:29,&#92;&quot;sloss&#92;&quot;:0,&#92;&quot;dloss&#92;&quot;:0,&#92;&quot;service&#92;&quot;:&#92;&quot;dns&#92;&quot;,&#92;&quot;sload&#92;&quot;:521894.5313,&#92;&quot;dload&#92;&quot;:636282.375,&#92;&quot;spkts&#92;&quot;:2,&#92;&quot;dpkts&#92;&quot;:2,&#92;&quot;swin&#92;&quot;:0,&#92;&quot;dwin&#92;&quot;:0,&#92;&quot;stcpb&#92;&quot;:0,&#92;&quot;dtcpb&#92;&quot;:0,&#92;&quot;smeansz&#92;&quot;:73,&#92;&quot;dmeansz&#92;&quot;:89,&#92;&quot;trans_depth&#92;&quot;:0,&#92;&quot;res_bdy_len&#92;&quot;:0,&#92;&quot;sjit&#92;&quot;:0.0,&#92;&quot;djit&#92;&quot;:0.0,&#92;&quot;stime&#92;&quot;:&#92;&quot;2015-01-22T11:50:14.000Z&#92;&quot;,&#92;&quot;ltime&#92;&quot;:&#92;&quot;2015-01-22T11:50:14.000Z&#92;&quot;,&#92;&quot;sintpkt&#92;&quot;:0.017,&#92;&quot;dintpkt&#92;&quot;:0.013,&#92;&quot;tcprtt&#92;&quot;:0.0,&#92;&quot;synack&#92;&quot;:0.0,&#92;&quot;ackdat&#92;&quot;:0.0,&#92;&quot;is_sm_ips_ports&#92;&quot;:0,&#92;&quot;ct_state_ttl&#92;&quot;:0,&#92;&quot;ct_flw_http_mthd&#92;&quot;:0,&#92;&quot;is_ftp_login&#92;&quot;:0,&#92;&quot;ct_ftp_cmd&#92;&quot;:0,&#92;&quot;ct_srv_src&#92;&quot;:12,&#92;&quot;ct_srv_dst&#92;&quot;:8,&#92;&quot;ct_dst_ltm&#92;&quot;:1,&#92;&quot;ct_src_ltm&#92;&quot;:2,&#92;&quot;ct_src_dport_ltm&#92;&quot;:2,&#92;&quot;ct_dst_sport_ltm&#92;&quot;:1,&#92;&quot;ct_dst_src_ltm&#92;&quot;:1,&#92;&quot;attack_cat&#92;&quot;:&#92;&quot;Normal&#92;&quot;,&#92;&quot;label&#92;&quot;:0},{&#92;&quot;id&#92;&quot;:4,&#92;&quot;srcip&#92;&quot;:&#92;&quot;59.166.0.5&#92;&quot;,&#92;&quot;sport&#92;&quot;:3593,&#92;&quot;dstip&#92;&quot;:&#92;&quot;149.171.126.5&#92;&quot;,&#92;&quot;dsport&#92;&quot;:53,&#92;&quot;proto&#92;&quot;:&#92;&quot;udp&#92;&quot;,&#92;&quot;state&#92;&quot;:&#92;&quot;con&#92;&quot;,&#92;&quot;dur&#92;&quot;:0.001209,&#92;&quot;sbytes&#92;&quot;:132,&#92;&quot;dbytes&#92;&quot;:164,&#92;&quot;sttl&#92;&quot;:31,&#92;&quot;dttl&#92;&quot;:29,&#92;&quot;sloss&#92;&quot;:0,&#92;&quot;dloss&#92;&quot;:0,&#92;&quot;service&#92;&quot;:&#92;&quot;dns&#92;&quot;,&#92;&quot;sload&#92;&quot;:436724.5625,&#92;&quot;dload&#92;&quot;:542597.1875,&#92;&quot;spkts&#92;&quot;:2,&#92;&quot;dpkts&#92;&quot;:2,&#92;&quot;swin&#92;&quot;:0,&#92;&quot;dwin&#92;&quot;:0,&#92;&quot;stcpb&#92;&quot;:0,&#92;&quot;dtcpb&#92;&quot;:0,&#92;&quot;smeansz&#92;&quot;:66,&#92;&quot;dmeansz&#92;&quot;:82,&#92;&quot;trans_depth&#92;&quot;:0,&#92;&quot;res_bdy_len&#92;&quot;:0,&#92;&quot;sjit&#92;&quot;:0.0,&#92;&quot;djit&#92;&quot;:0.0,&#92;&quot;stime&#92;&quot;:&#92;&quot;2015-01-22T11:50:14.000Z&#92;&quot;,&#92;&quot;ltime&#92;&quot;:&#92;&quot;2015-01-22T11:50:14.000Z&#92;&quot;,&#92;&quot;sintpkt&#92;&quot;:0.043,&#92;&quot;dintpkt&#92;&quot;:0.014,&#92;&quot;tcprtt&#92;&quot;:0.0,&#92;&quot;synack&#92;&quot;:0.0,&#92;&quot;ackdat&#92;&quot;:0.0,&#92;&quot;is_sm_ips_ports&#92;&quot;:0,&#92;&quot;ct_state_ttl&#92;&quot;:0,&#92;&quot;ct_flw_http_mthd&#92;&quot;:0,&#92;&quot;is_ftp_login&#92;&quot;:0,&#92;&quot;ct_ftp_cmd&#92;&quot;:0,&#92;&quot;ct_srv_src&#92;&quot;:6,&#92;&quot;ct_srv_dst&#92;&quot;:9,&#92;&quot;ct_dst_ltm&#92;&quot;:1,&#92;&quot;ct_src_ltm&#92;&quot;:1,&#92;&quot;ct_src_dport_ltm&#92;&quot;:1,&#92;&quot;ct_dst_sport_ltm&#92;&quot;:1,&#92;&quot;ct_dst_src_ltm&#92;&quot;:1,&#92;&quot;attack_cat&#92;&quot;:&#92;&quot;Normal&#92;&quot;,&#92;&quot;label&#92;&quot;:0},{&#92;&quot;id&#92;&quot;:5,&#92;&quot;srcip&#92;&quot;:&#92;&quot;59.166.0.3&#92;&quot;,&#92;&quot;sport&#92;&quot;:49664,&#92;&quot;dstip&#92;&quot;:&#92;&quot;149.171.126.0&#92;&quot;,&#92;&quot;dsport&#92;&quot;:53,&#92;&quot;proto&#92;&quot;:&#92;&quot;udp&#92;&quot;,&#92;&quot;state&#92;&quot;:&#92;&quot;con&#92;&quot;,&#92;&quot;dur&#92;&quot;:0.001169,&#92;&quot;sbytes&#92;&quot;:146,&#92;&quot;dbytes&#92;&quot;:178,&#92;&quot;sttl&#92;&quot;:31,&#92;&quot;dttl&#92;&quot;:29,&#92;&quot;sloss&#92;&quot;:0,&#92;&quot;dloss&#92;&quot;:0,&#92;&quot;service&#92;&quot;:&#92;&quot;dns&#92;&quot;,&#92;&quot;sload&#92;&quot;:499572.25,&#92;&quot;dload&#92;&quot;:609067.5625,&#92;&quot;spkts&#92;&quot;:2,&#92;&quot;dpkts&#92;&quot;:2,&#92;&quot;swin&#92;&quot;:0,&#92;&quot;dwin&#92;&quot;:0,&#92;&quot;stcpb&#92;&quot;:0,&#92;&quot;dtcpb&#92;&quot;:0,&#92;&quot;smeansz&#92;&quot;:73,&#92;&quot;dmeansz&#92;&quot;:89,&#92;&quot;trans_depth&#92;&quot;:0,&#92;&quot;res_bdy_len&#92;&quot;:0,&#92;&quot;sjit&#92;&quot;:0.0,&#92;&quot;djit&#92;&quot;:0.0,&#92;&quot;stime&#92;&quot;:&#92;&quot;2015-01-22T11:50:14.000Z&#92;&quot;,&#92;&quot;ltime&#92;&quot;:&#92;&quot;2015-01-22T11:50:14.000Z&#92;&quot;,&#92;&quot;sintpkt&#92;&quot;:0.005,&#92;&quot;dintpkt&#92;&quot;:0.003,&#92;&quot;tcprtt&#92;&quot;:0.0,&#92;&quot;synack&#92;&quot;:0.0,&#92;&quot;ackdat&#92;&quot;:0.0,&#92;&quot;is_sm_ips_ports&#92;&quot;:0,&#92;&quot;ct_state_ttl&#92;&quot;:0,&#92;&quot;ct_flw_http_mthd&#92;&quot;:0,&#92;&quot;is_ftp_login&#92;&quot;:0,&#92;&quot;ct_ftp_cmd&#92;&quot;:0,&#92;&quot;ct_srv_src&#92;&quot;:7,&#92;&quot;ct_srv_dst&#92;&quot;:9,&#92;&quot;ct_dst_ltm&#92;&quot;:1,&#92;&quot;ct_src_ltm&#92;&quot;:1,&#92;&quot;ct_src_dport_ltm&#92;&quot;:1,&#92;&quot;ct_dst_sport_ltm&#92;&quot;:1,&#92;&quot;ct_dst_src_ltm&#92;&quot;:1,&#92;&quot;attack_cat&#92;&quot;:&#92;&quot;Normal&#92;&quot;,&#92;&quot;label&#92;&quot;:0},{&#92;&quot;id&#92;&quot;:6,&#92;&quot;srcip&#92;&quot;:&#92;&quot;59.166.0.0&#92;&quot;,&#92;&quot;sport&#92;&quot;:32119,&#92;&quot;dstip&#92;&quot;:&#92;&quot;149.171.126.9&#92;&quot;,&#92;&quot;dsport&#92;&quot;:111,&#92;&quot;proto&#92;&quot;:&#92;&quot;udp&#92;&quot;,&#92;&quot;state&#92;&quot;:&#92;&quot;con&#92;&quot;,&#92;&quot;dur&#92;&quot;:0.078339,&#92;&quot;sbytes&#92;&quot;:568,&#92;&quot;dbytes&#92;&quot;:312,&#92;&quot;sttl&#92;&quot;:31,&#92;&quot;dttl&#92;&quot;:29,&#92;&quot;sloss&#92;&quot;:0,&#92;&quot;dloss&#92;&quot;:0,&#92;&quot;service&#92;&quot;:&#92;&quot;unknown&#92;&quot;,&#92;&quot;sload&#92;&quot;:43503.23438,&#92;&quot;dload&#92;&quot;:23896.14258,&#92;&quot;spkts&#92;&quot;:4,&#92;&quot;dpkts&#92;&quot;:4,&#92;&quot;swin&#92;&quot;:0,&#92;&quot;dwin&#92;&quot;:0,&#92;&quot;stcpb&#92;&quot;:0,&#92;&quot;dtcpb&#92;&quot;:0,&#92;&quot;smeansz&#92;&quot;:142,&#92;&quot;dmeansz&#92;&quot;:78,&#92;&quot;trans_depth&#92;&quot;:0,&#92;&quot;res_bdy_len&#92;&quot;:0,&#92;&quot;sjit&#92;&quot;:29.682221,&#92;&quot;djit&#92;&quot;:34.37034,&#92;&quot;stime&#92;&quot;:&#92;&quot;2015-01-22T11:50:14.000Z&#92;&quot;,&#92;&quot;ltime&#92;&quot;:&#92;&quot;2015-01-22T11:50:14.000Z&#92;&quot;,&#92;&quot;sintpkt&#92;&quot;:21.003,&#92;&quot;dintpkt&#92;&quot;:24.315,&#92;&quot;tcprtt&#92;&quot;:0.0,&#92;&quot;synack&#92;&quot;:0.0,&#92;&quot;ackdat&#92;&quot;:0.0,&#92;&quot;is_sm_ips_ports&#92;&quot;:0,&#92;&quot;ct_state_ttl&#92;&quot;:0,&#92;&quot;ct_flw_http_mthd&#92;&quot;:0,&#92;&quot;is_ftp_login&#92;&quot;:0,&#92;&quot;ct_ftp_cmd&#92;&quot;:0,&#92;&quot;ct_srv_src&#92;&quot;:2,&#92;&quot;ct_srv_dst&#92;&quot;:4,&#92;&quot;ct_dst_ltm&#92;&quot;:2,&#92;&quot;ct_src_ltm&#92;&quot;:3,&#92;&quot;ct_src_dport_ltm&#92;&quot;:1,&#92;&quot;ct_dst_sport_ltm&#92;&quot;:1,&#92;&quot;ct_dst_src_ltm&#92;&quot;:2,&#92;&quot;attack_cat&#92;&quot;:&#92;&quot;Normal&#92;&quot;,&#92;&quot;label&#92;&quot;:0},{&#92;&quot;id&#92;&quot;:7,&#92;&quot;srcip&#92;&quot;:&#92;&quot;59.166.0.6&#92;&quot;,&#92;&quot;sport&#92;&quot;:2142,&#92;&quot;dstip&#92;&quot;:&#92;&quot;149.171.126.4&#92;&quot;,&#92;&quot;dsport&#92;&quot;:53,&#92;&quot;proto&#92;&quot;:&#92;&quot;udp&#92;&quot;,&#92;&quot;state&#92;&quot;:&#92;&quot;con&#92;&quot;,&#92;&quot;dur&#92;&quot;:0.001134,&#92;&quot;sbytes&#92;&quot;:132,&#92;&quot;dbytes&#92;&quot;:164,&#92;&quot;sttl&#92;&quot;:31,&#92;&quot;dttl&#92;&quot;:29,&#92;&quot;sloss&#92;&quot;:0,&#92;&quot;dloss&#92;&quot;:0,&#92;&quot;service&#92;&quot;:&#92;&quot;dns&#92;&quot;,&#92;&quot;sload&#92;&quot;:465608.4688,&#92;&quot;dload&#92;&quot;:578483.25,&#92;&quot;spkts&#92;&quot;:2,&#92;&quot;dpkts&#92;&quot;:2,&#92;&quot;swin&#92;&quot;:0,&#92;&quot;dwin&#92;&quot;:0,&#92;&quot;stcpb&#92;&quot;:0,&#92;&quot;dtcpb&#92;&quot;:0,&#92;&quot;smeansz&#92;&quot;:66,&#92;&quot;dmeansz&#92;&quot;:82,&#92;&quot;trans_depth&#92;&quot;:0,&#92;&quot;res_bdy_len&#92;&quot;:0,&#92;&quot;sjit&#92;&quot;:0.0,&#92;&quot;djit&#92;&quot;:0.0,&#92;&quot;stime&#92;&quot;:&#92;&quot;2015-01-22T11:50:14.000Z&#92;&quot;,&#92;&quot;ltime&#92;&quot;:&#92;&quot;2015-01-22T11:50:14.000Z&#92;&quot;,&#92;&quot;sintpkt&#92;&quot;:0.017,&#92;&quot;dintpkt&#92;&quot;:0.013,&#92;&quot;tcprtt&#92;&quot;:0.0,&#92;&quot;synack&#92;&quot;:0.0,&#92;&quot;ackdat&#92;&quot;:0.0,&#92;&quot;is_sm_ips_ports&#92;&quot;:0,&#92;&quot;ct_state_ttl&#92;&quot;:0,&#92;&quot;ct_flw_http_mthd&#92;&quot;:0,&#92;&quot;is_ftp_login&#92;&quot;:0,&#92;&quot;ct_ftp_cmd&#92;&quot;:0,&#92;&quot;ct_srv_src&#92;&quot;:12,&#92;&quot;ct_srv_dst&#92;&quot;:7,&#92;&quot;ct_dst_ltm&#92;&quot;:1,&#92;&quot;ct_src_ltm&#92;&quot;:2,&#92;&quot;ct_src_dport_ltm&#92;&quot;:2,&#92;&quot;ct_dst_sport_ltm&#92;&quot;:1,&#92;&quot;ct_dst_src_ltm&#92;&quot;:1,&#92;&quot;attack_cat&#92;&quot;:&#92;&quot;Normal&#92;&quot;,&#92;&quot;label&#92;&quot;:0},{&#92;&quot;id&#92;&quot;:8,&#92;&quot;srcip&#92;&quot;:&#92;&quot;10.40.182.3&#92;&quot;,&#92;&quot;sport&#92;&quot;:0,&#92;&quot;dstip&#92;&quot;:&#92;&quot;10.40.182.3&#92;&quot;,&#92;&quot;dsport&#92;&quot;:0,&#92;&quot;proto&#92;&quot;:&#92;&quot;other&#92;&quot;,&#92;&quot;state&#92;&quot;:&#92;&quot;int&#92;&quot;,&#92;&quot;dur&#92;&quot;:0.0,&#92;&quot;sbytes&#92;&quot;:46,&#92;&quot;dbytes&#92;&quot;:0,&#92;&quot;sttl&#92;&quot;:0,&#92;&quot;dttl&#92;&quot;:0,&#92;&quot;sloss&#92;&quot;:0,&#92;&quot;dloss&#92;&quot;:0,&#92;&quot;service&#92;&quot;:&#92;&quot;unknown&#92;&quot;,&#92;&quot;sload&#92;&quot;:0.0,&#92;&quot;dload&#92;&quot;:0.0,&#92;&quot;spkts&#92;&quot;:1,&#92;&quot;dpkts&#92;&quot;:0,&#92;&quot;swin&#92;&quot;:0,&#92;&quot;dwin&#92;&quot;:0,&#92;&quot;stcpb&#92;&quot;:0,&#92;&quot;dtcpb&#92;&quot;:0,&#92;&quot;smeansz&#92;&quot;:46,&#92;&quot;dmeansz&#92;&quot;:0,&#92;&quot;trans_depth&#92;&quot;:0,&#92;&quot;res_bdy_len&#92;&quot;:0,&#92;&quot;sjit&#92;&quot;:0.0,&#92;&quot;djit&#92;&quot;:0.0,&#92;&quot;stime&#92;&quot;:&#92;&quot;2015-01-22T11:50:15.000Z&#92;&quot;,&#92;&quot;ltime&#92;&quot;:&#92;&quot;2015-01-22T11:50:15.000Z&#92;&quot;,&#92;&quot;sintpkt&#92;&quot;:0.0,&#92;&quot;dintpkt&#92;&quot;:0.0,&#92;&quot;tcprtt&#92;&quot;:0.0,&#92;&quot;synack&#92;&quot;:0.0,&#92;&quot;ackdat&#92;&quot;:0.0,&#92;&quot;is_sm_ips_ports&#92;&quot;:1,&#92;&quot;ct_state_ttl&#92;&quot;:2,&#92;&quot;ct_flw_http_mthd&#92;&quot;:0,&#92;&quot;is_ftp_login&#92;&quot;:0,&#92;&quot;ct_ftp_cmd&#92;&quot;:0,&#92;&quot;ct_srv_src&#92;&quot;:2,&#92;&quot;ct_srv_dst&#92;&quot;:2,&#92;&quot;ct_dst_ltm&#92;&quot;:2,&#92;&quot;ct_src_ltm&#92;&quot;:2,&#92;&quot;ct_src_dport_ltm&#92;&quot;:2,&#92;&quot;ct_dst_sport_ltm&#92;&quot;:2,&#92;&quot;ct_dst_src_ltm&#92;&quot;:2,&#92;&quot;attack_cat&#92;&quot;:&#92;&quot;Normal&#92;&quot;,&#92;&quot;label&#92;&quot;:0},{&#92;&quot;id&#92;&quot;:9,&#92;&quot;srcip&#92;&quot;:&#92;&quot;59.166.0.5&#92;&quot;,&#92;&quot;sport&#92;&quot;:40726,&#92;&quot;dstip&#92;&quot;:&#92;&quot;149.171.126.6&#92;&quot;,&#92;&quot;dsport&#92;&quot;:53,&#92;&quot;proto&#92;&quot;:&#92;&quot;udp&#92;&quot;,&#92;&quot;state&#92;&quot;:&#92;&quot;con&#92;&quot;,&#92;&quot;dur&#92;&quot;:0.001126,&#92;&quot;sbytes&#92;&quot;:146,&#92;&quot;dbytes&#92;&quot;:178,&#92;&quot;sttl&#92;&quot;:31,&#92;&quot;dttl&#92;&quot;:29,&#92;&quot;sloss&#92;&quot;:0,&#92;&quot;dloss&#92;&quot;:0,&#92;&quot;service&#92;&quot;:&#92;&quot;dns&#92;&quot;,&#92;&quot;sload&#92;&quot;:518650.0938,&#92;&quot;dload&#92;&quot;:632326.8125,&#92;&quot;spkts&#92;&quot;:2,&#92;&quot;dpkts&#92;&quot;:2,&#92;&quot;swin&#92;&quot;:0,&#92;&quot;dwin&#92;&quot;:0,&#92;&quot;stcpb&#92;&quot;:0,&#92;&quot;dtcpb&#92;&quot;:0,&#92;&quot;smeansz&#92;&quot;:73,&#92;&quot;dmeansz&#92;&quot;:89,&#92;&quot;trans_depth&#92;&quot;:0,&#92;&quot;res_bdy_len&#92;&quot;:0,&#92;&quot;sjit&#92;&quot;:0.0,&#92;&quot;djit&#92;&quot;:0.0,&#92;&quot;stime&#92;&quot;:&#92;&quot;2015-01-22T11:50:15.000Z&#92;&quot;,&#92;&quot;ltime&#92;&quot;:&#92;&quot;2015-01-22T11:50:15.000Z&#92;&quot;,&#92;&quot;sintpkt&#92;&quot;:0.018,&#92;&quot;dintpkt&#92;&quot;:0.013,&#92;&quot;tcprtt&#92;&quot;:0.0,&#92;&quot;synack&#92;&quot;:0.0,&#92;&quot;ackdat&#92;&quot;:0.0,&#92;&quot;is_sm_ips_ports&#92;&quot;:0,&#92;&quot;ct_state_ttl&#92;&quot;:0,&#92;&quot;ct_flw_http_mthd&#92;&quot;:0,&#92;&quot;is_ftp_login&#92;&quot;:0,&#92;&quot;ct_ftp_cmd&#92;&quot;:0,&#92;&quot;ct_srv_src&#92;&quot;:6,&#92;&quot;ct_srv_dst&#92;&quot;:7,&#92;&quot;ct_dst_ltm&#92;&quot;:3,&#92;&quot;ct_src_ltm&#92;&quot;:1,&#92;&quot;ct_src_dport_ltm&#92;&quot;:1,&#92;&quot;ct_dst_sport_ltm&#92;&quot;:1,&#92;&quot;ct_dst_src_ltm&#92;&quot;:1,&#92;&quot;attack_cat&#92;&quot;:&#92;&quot;Normal&#92;&quot;,&#92;&quot;label&#92;&quot;:0},{&#92;&quot;id&#92;&quot;:10,&#92;&quot;srcip&#92;&quot;:&#92;&quot;59.166.0.7&#92;&quot;,&#92;&quot;sport&#92;&quot;:12660,&#92;&quot;dstip&#92;&quot;:&#92;&quot;149.171.126.4&#92;&quot;,&#92;&quot;dsport&#92;&quot;:53,&#92;&quot;proto&#92;&quot;:&#92;&quot;udp&#92;&quot;,&#92;&quot;state&#92;&quot;:&#92;&quot;con&#92;&quot;,&#92;&quot;dur&#92;&quot;:0.001167,&#92;&quot;sbytes&#92;&quot;:132,&#92;&quot;dbytes&#92;&quot;:164,&#92;&quot;sttl&#92;&quot;:31,&#92;&quot;dttl&#92;&quot;:29,&#92;&quot;sloss&#92;&quot;:0,&#92;&quot;dloss&#92;&quot;:0,&#92;&quot;service&#92;&quot;:&#92;&quot;dns&#92;&quot;,&#92;&quot;sload&#92;&quot;:452442.1563,&#92;&quot;dload&#92;&quot;:562125.0625,&#92;&quot;spkts&#92;&quot;:2,&#92;&quot;dpkts&#92;&quot;:2,&#92;&quot;swin&#92;&quot;:0,&#92;&quot;dwin&#92;&quot;:0,&#92;&quot;stcpb&#92;&quot;:0,&#92;&quot;dtcpb&#92;&quot;:0,&#92;&quot;smeansz&#92;&quot;:66,&#92;&quot;dmeansz&#92;&quot;:82,&#92;&quot;trans_depth&#92;&quot;:0,&#92;&quot;res_bdy_len&#92;&quot;:0,&#92;&quot;sjit&#92;&quot;:0.0,&#92;&quot;djit&#92;&quot;:0.0,&#92;&quot;stime&#92;&quot;:&#92;&quot;2015-01-22T11:50:15.000Z&#92;&quot;,&#92;&quot;ltime&#92;&quot;:&#92;&quot;2015-01-22T11:50:15.000Z&#92;&quot;,&#92;&quot;sintpkt&#92;&quot;:0.018,&#92;&quot;dintpkt&#92;&quot;:0.013,&#92;&quot;tcprtt&#92;&quot;:0.0,&#92;&quot;synack&#92;&quot;:0.0,&#92;&quot;ackdat&#92;&quot;:0.0,&#92;&quot;is_sm_ips_ports&#92;&quot;:0,&#92;&quot;ct_state_ttl&#92;&quot;:0,&#92;&quot;ct_flw_http_mthd&#92;&quot;:0,&#92;&quot;is_ftp_login&#92;&quot;:0,&#92;&quot;ct_ftp_cmd&#92;&quot;:0,&#92;&quot;ct_srv_src&#92;&quot;:6,&#92;&quot;ct_srv_dst&#92;&quot;:7,&#92;&quot;ct_dst_ltm&#92;&quot;:2,&#92;&quot;ct_src_ltm&#92;&quot;:1,&#92;&quot;ct_src_dport_ltm&#92;&quot;:1,&#92;&quot;ct_dst_sport_ltm&#92;&quot;:1,&#92;&quot;ct_dst_src_ltm&#92;&quot;:1,&#92;&quot;attack_cat&#92;&quot;:&#92;&quot;Normal&#92;&quot;,&#92;&quot;label&#92;&quot;:0}]&quot;' data-total-rows='10' data-total-columns='51' data-max-columns='50' data-banner-text='&quot;Only showing 50 of 51 columns.&quot;' data-pagination='true' data-page-size='10' data-field-types='[[&quot;id&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;srcip&quot;,[&quot;string&quot;,&quot;object&quot;]],[&quot;sport&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;dstip&quot;,[&quot;string&quot;,&quot;object&quot;]],[&quot;dsport&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;proto&quot;,[&quot;string&quot;,&quot;object&quot;]],[&quot;state&quot;,[&quot;string&quot;,&quot;object&quot;]],[&quot;dur&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;sbytes&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;dbytes&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;sttl&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;dttl&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;sloss&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;dloss&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;service&quot;,[&quot;string&quot;,&quot;object&quot;]],[&quot;sload&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;dload&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;spkts&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;dpkts&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;swin&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;dwin&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;stcpb&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;dtcpb&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;smeansz&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;dmeansz&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;trans_depth&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;res_bdy_len&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;sjit&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;djit&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;stime&quot;,[&quot;datetime&quot;,&quot;datetime64[us, Asia/Ho_Chi_Minh]&quot;]],[&quot;ltime&quot;,[&quot;datetime&quot;,&quot;datetime64[us, Asia/Ho_Chi_Minh]&quot;]],[&quot;sintpkt&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;dintpkt&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;tcprtt&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;synack&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;ackdat&quot;,[&quot;number&quot;,&quot;float64&quot;]],[&quot;is_sm_ips_ports&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;ct_state_ttl&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;ct_flw_http_mthd&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;is_ftp_login&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;ct_ftp_cmd&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;ct_srv_src&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;ct_srv_dst&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;ct_dst_ltm&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;ct_src_ltm&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;ct_src_dport_ltm&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;ct_dst_sport_ltm&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;ct_dst_src_ltm&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;attack_cat&quot;,[&quot;string&quot;,&quot;object&quot;]],[&quot;label&quot;,[&quot;integer&quot;,&quot;int64&quot;]],[&quot;multiclass_label&quot;,[&quot;integer&quot;,&quot;int64&quot;]]]' data-show-filters='true' data-show-download='true' data-show-column-summaries='false' data-show-data-types='true' data-show-page-size-selector='true' data-show-column-explorer='true' data-show-chart-builder='true' data-row-headers='[]' data-has-stable-row-id='false' data-lazy='false' data-preload='false'></marimo-table></marimo-ui-element>"
+          }
+        }
+      ],
       "console": []
     },
     {
       "id": "ZHCJ",
-      "code_hash": "fd149f5fb269c530b6bc89050ec25c87",
-      "outputs": [],
+      "code_hash": null,
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "Catalog Error: Table with name nb15_train_featurized does not exist!\nDid you mean \"nb15_trainset\"?",
+          "traceback": []
+        }
+      ],
       "console": []
     },
     {
       "id": "ROlb",
+      "code_hash": null,
+      "outputs": [
+        {
+          "type": "error",
+          "ename": "exception",
+          "evalue": "Catalog Error: Table with name nb15_train_featurized does not exist!\nDid you mean \"nb15_trainset\"?",
+          "traceback": []
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "RGSE",
       "code_hash": "b8d1a7dcd24957c4e3dca3b56ffd9bff",
       "outputs": [],
       "console": []
     },
     {
-      "id": "qnkX",
+      "id": "Kclp",
       "code_hash": "a7dd351423df8618d5bda6c17e725eee",
       "outputs": [],
       "console": []

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -eou pipefail 
+set -eou pipefail
 
 if [ $# -ne 2 ]; then
 		echo "Usage: $0 <source> destination"
