@@ -69,14 +69,16 @@ docker exec broker kafka-console-consumer \
 
 ```
 Network Traffic (wlo1)
-    ↓
+        |
+        v
 Zeek (Docker Container)
-    ├── unsw-extra.zeek (custom features)
-    ├── writekafka.zeek (Kafka streaming)
-    ↓
+├── unsw-extra.zeek (custom features)
+├── writekafka.zeek (Kafka streaming)
+        |
+        v
 Outputs:
-    ├── Local Files: zeek_logs/*.log
-    └── Kafka: localhost:9092/zeek-logs
+├── Local Files: zeek_logs/*.log
+└── Kafka: localhost:9092/zeek-logs
 ```
 
 ## Custom Features (unsw-extra.zeek)
