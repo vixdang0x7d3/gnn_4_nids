@@ -6,15 +6,19 @@ dist/
 wheels/
 *.egg-info
 
-# Virtual environments
-.venv
+# Marimo cache
+**/__marimo__/
 
-# Hides Environment variables
-.env
+# Virtual environments
+model_training/.venv
 
 # Prevent uploading data and model files
-data/
-models/
+model_training/data/*
+model_training/models/*
+
+# Test data
+data_pipeline/data/*
+zeek/zeek_logs/*
 
 # Hehe
-CLAUDE.md
+**/CLAUDE.md
