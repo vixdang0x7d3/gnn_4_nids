@@ -85,12 +85,12 @@ Methods used:
 ### Handling Imbalanced Data
 
 - **Groupwise SMOTE** perform sampling in each (proto, state, service) tripplet group to retain graph connectivity (only applied in multi-class classification)
-- **Class weight** Assign more weights to minority class address label imbalance
+- **Class weights** Assign more weight to minority class address label imbalance
 
 ## Evaluation
 
 ### Metrics 
-
+- precision
 - recall
 - f1
 - weighted accuracy
@@ -127,6 +127,6 @@ Methods used:
 | **Accuracy** | | | **0.9457** | **508,114** |
 | Macro Avg | 0.3320 | 0.4926 | 0.2933 | 508,114 |
 
-The high recall but very low precision for minority attack classes (Worms, Shellcode, Analysis) suggests severe class imbalance issues in your intrusion detection model.
+The high recall but very low precision for minority attack classes (Worms, Shellcode, Analysis) despite SMOTE, and class weight techniques applied. Multiclass detection model is not ready for production.
 
 
