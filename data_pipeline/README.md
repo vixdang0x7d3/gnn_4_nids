@@ -1,120 +1,35 @@
-# Data Pipeline - Network Traffic ETL for GNN-based NIDS
+# Logs Processing ETL Pipeline
 
 ETL pipeline for processing Zeek network logs and transforming them to UNSW-NB15 compatible features for Graph Neural Network based Network Intrusion Detection System.
 
 ## Overview
 
-This pipeline ingests real-time network traffic data from Zeek (via local files or Kafka streams), transforms it to match UNSW-NB15 dataset schema, and prepares graph-structured data for GNN model training and inference.
+This pipeline ingests real-time network traffic data from Zeek (via  Kafka streams), transforms it to match UNSW-NB15 dataset schema, and prepares graph-structured data for GNN model training and inference.
 
-### Key Features
+### Key features
 
 - **Real-time Processing**: Consume Zeek logs from Kafka streams or local files
 - **UNSW-NB15 Compatible**: Transform Zeek features to match UNSW-NB15 schema
-- **Graph Construction**: Build network traffic graphs for GNN input
-- **Interactive Development**: Marimo reactive notebooks for pipeline experimentation
-- **Efficient Processing**: Polars/DuckDB for high-performance data transformations
+-  **Efficent Processing**: DuckDB + Pyarrow for high-performance data transformations ( on single node setup :-) )
 
-## Quick Start
-
-### 1. Install Dependencies
-
-```bash
-# Install Python dependencies with uv
-uv sync
-
-# Install dev dependencies (includes marimo)
-uv sync --dev
-```
-
-### 2. Start Kafka Infrastructure (Optional)
-
-For streaming pipeline:
-
-```bash
-docker compose up -d
-```
-
-Verify Kafka is running:
-```bash
-docker ps | grep -E "(kafka|zookeeper)"
-```
-
-### 3. Run Interactive Notebooks
-
-```bash
-# Launch Marimo notebook for pipeline development
-uv run marimo edit src/notebooks/zeek2unsw_nb15_dev.py
-```
-
-Or run as a script:
-```bash
-uv run python src/notebooks/zeek2unsw_nb15_dev.py
-```
-
-## Architecture
-
-```
-Zeek Logs (Kafka/Files)
-    |
-    v
-Ingestion Layer
-- Kafka Consumer (streaming)
-- File Reader (batch)
-    |
-    v
-Transformation Layer (Polars/DuckDB)
-- Feature Engineering
-- UNSW-NB15 Schema Mapping
-- Data Validation
-    |
-    v
-Graph Construction
-- Node Features
-- Edge Construction
-- Graph Attributes
-    |
-    v
-Output
-- Feature Store (offline/online)
-- PyTorch Geometric Data
-```
-
-## Directory Structure
-
-```
-data_pipeline/
-├── src/
-│   └── notebooks/
-│       ├── zeek2unsw_nb15_dev.py      # Main ETL pipeline notebook
-│       └── dataset_comparison.py       # Dataset analysis
-├── data/
-│   ├── zeek_logs/                      # Zeek log files (conn.log, unsw-extra.log)
-│   ├── nb15_sample/                    # UNSW-NB15 sample data
-│   └── pcaps/                          # Raw packet captures
-├── docker-compose.yaml                 # Kafka infrastructure
-├── pyproject.toml                      # Python dependencies
-└── README.md                           # This file
-```
 
 ## Data Flow
 
 ### Input: Zeek Logs
 
-The pipeline consumes two primary Zeek log types:
+The pipeline consumes two primary Zeek logs:
 
 1. **conn.log**: Standard Zeek connection records
-   - Duration, bytes, packets, protocol info
-   - Connection states, history flags
+    - Duration, bytes, packets, protocol info
+    - Connection states, history flags, etc.
 
-2. **unsw-extra.log**: Custom UNSW-NB15 features (from `../zeek/unsw-extra.zeek`)
-   - TCP RTT (Round-Trip Time)
-   - Packet timestamps (for inter-packet time)
-   - TTL values (source/destination)
-   - Packet sizes (for mean calculations)
+2. **unsw-extra.log**: Custom UNSW-NB15 features
+    - TCP RTT (Round-Trip Time)
+    - Packet timestamps (for inter-packet time)
+    - TTL values (source/destination Time-To-Live)
+    - Packet sizes (for mean calculations)
 
 ### Transformation: UNSW-NB15 Feature Mapping
-
-The pipeline maps Zeek features to UNSW-NB15 schema:
 
 | UNSW-NB15 Feature | Source | Calculation |
 |-------------------|--------|-------------|
@@ -129,23 +44,12 @@ The pipeline maps Zeek features to UNSW-NB15 schema:
 | `dmean` | unsw-extra.log | mean(dst_pkt_sizes) |
 | `tcprtt` | unsw-extra.log | tcp_rtt |
 
-### Output: Graph Data
+### Kafka Integration
 
-Converts tabular network data to graph structures:
-
-- **Nodes**: IP addresses or connections
-- **Edges**: Communication relationships
-- **Node Features**: UNSW-NB15 compatible features
-- **Graph Attributes**: Temporal/spatial metadata
-
-## Kafka Integration
-
-### Topic Structure
-
-- **zeek-logs**: Mixed conn + unsw-extra records in JSON format
+**Topic structure**: Mixed conn + unsw-extra records in JSON format
 
 Example message:
-```json
+```
 {
   "conn": {
     "ts": 1763799918.631471,
@@ -159,86 +63,18 @@ Example message:
     "orig_bytes": 24,
     "resp_bytes": 1197
   }
+  "unsw-extra": {...}
 }
 ```
 
-## Development Workflow
+Perform transformations to get UNSW-NB15 compatible record:
 
-### 1. Explore Data
+┌────────────┬───────┬───────────────┬────────┬─────────┬─────────┬───┬────────────┬────────────┐
+│   srcip    │ sport │     dstip     │ dsport │  proto  │  state  │ … │ ct_dst_ltm │ ct_src_ltm │
+│  varchar   │ int64 │    varchar    │ int64  │ varchar │ varchar │   │   int64    │   int64    │
+├────────────┼───────┼───────────────┼────────┼─────────┼─────────┼───┼────────────┼────────────┤
+│ 59.166.0.0 │ 1390  │ 149.171.126.6 │   53   │ udp     │ con     │ … │     1      │     3      │
+└────────────┴───────┴───────────────┴────────┴─────────┴─────────┴───┴────────────┴────────────┘
 
-Use Marimo notebooks for interactive exploration:
 
-```bash
-uv run marimo edit src/notebooks/dataset_comparison.py
-```
 
-### 2. Develop Transformations
-
-Edit transformation logic in notebooks:
-
-```bash
-uv run marimo edit src/notebooks/zeek2unsw_nb15_dev.py
-```
-
-### 3. Test with Live Data
-
-1. Start Zeek (see `../zeek/README.md`)
-2. Start Kafka: `docker compose up -d`
-3. Run pipeline notebook with live Kafka stream
-
-## Technologies
-
-### Core Dependencies
-
-- **Polars** (v1.35+): High-performance DataFrame operations
-- **DuckDB** (v1.4+): SQL analytics, Kafka integration
-- **PyArrow** (v22+): Columnar data format
-- **SQLGlot** (v28+): SQL parsing and transformation
-
-### Development Tools
-
-- **Marimo** (v0.18+): Reactive Python notebooks
-- **uv**: Fast Python package manager
-
-## Troubleshooting
-
-### Kafka Connection Issues
-
-```bash
-# Check Kafka is running
-docker ps | grep broker
-
-# Test connectivity
-docker exec broker kafka-topics --list --bootstrap-server localhost:9092
-```
-
-### Missing Zeek Logs
-
-Ensure Zeek is running and writing logs:
-```bash
-ls -la ../zeek/zeek_logs/
-```
-
-### Dependencies Issues
-
-```bash
-# Reinstall dependencies
-uv sync --reinstall
-
-# Check Python version
-python --version  # Should be 3.13+
-```
-
-## Related Components
-
-- **Zeek Setup**: See `../zeek/README.md` for network traffic capture
-- **Model Training**: See `../model_training/README.md` for GNN training
-- **Root Project**: See `../README.md` for overall architecture
-
-## References
-
-- [UNSW-NB15 Dataset](https://research.unsw.edu.au/projects/unsw-nb15-dataset)
-- [Zeek Documentation](https://docs.zeek.org/)
-- [Polars User Guide](https://docs.pola.rs/)
-- [DuckDB Documentation](https://duckdb.org/docs/)
-- [Marimo Documentation](https://docs.marimo.io/)
