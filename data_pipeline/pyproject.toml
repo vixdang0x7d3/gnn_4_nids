@@ -5,9 +5,10 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "duckdb>=1.4.2",
+    "duckdb==1.4.0",
+    "graph-building",
     "polars>=1.35.2",
-    "pyarrow>=22.0.0",
+    "pyarrow==21.0.0",
     "sqlglot>=28.0.0",
 ]
 
@@ -15,3 +16,6 @@ dependencies = [
 dev = [
     "marimo>=0.18.0",
 ]
+
+[tool.uv.sources]
+graph-building = { path = "../graph_building" }

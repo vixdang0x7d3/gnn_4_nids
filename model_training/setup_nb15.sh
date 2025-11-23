@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 
 
-ROOT_DIR=$(realpath ..)
-CSV_PATH=$(realpath ../data/NB15_csv)
-PQ_PATH=$(realpath ../data/NB15_preprocessed/raw)
-SUBSET_PATH=$(realpath ../data/NB15_pp_sample/raw)
+ROOT_DIR=$(realpath .)
+SRC_PATH=$(realpath ./src)
+CSV_PATH=$(realpath data/NB15_csv)
+PQ_PATH=$(realpath data/NB15_preprocessed/raw)
+SUBSET_PATH=$(realpath data/NB15_pp_sample/raw)
 ZIP_FILE=nb15_tmp.zip
 
 FILE_ID=1mBJzj_oeY5TFSYseRbmSkgVExzq3VwKb
 SPLIT=false
-
 
 if ! command -v curl &> /dev/null; then
     echo 'curl not found.'
@@ -54,10 +54,10 @@ read -p "Split to train/test/val sets? (y/n): "  do_split
 
 mkdir -p "$PQ_PATH"
 if [[ "$do_split" =~ ^[Yy]$ ]]; then
-    uv run ../src/preprocessing/preprocess_nb15.py \
+    uv run "$SRC_PATH/preprocessing/preprocess_nb15.py" \
         --raw_path "$CSV_PATH" --save_path "$PQ_PATH" --split
 else
-    uv run ../src/preprocessing/preprocess_nb15.py \
+    uv run "$SRC_PATH/preprocessing/preprocess_nb15.py" \
         --raw_path "$CSV_PATH" --save_path "$PQ_PATH"
 fi
 
@@ -65,7 +65,7 @@ read -p "Save a subset of data to $SUBSET_PATH? (y/n): " do_subset
 
 mkdir -p "$SUBSET_PATH"
 if [[ "$do_subset" =~ ^[Yy]$ ]]; then
-    uv run ../src/preprocessing/preprocess_nb15.py \
+    uv run "$SRC_PATH/preprocessing/preprocess_nb15.py" \
         --raw_path "$CSV_PATH" --save_path "$SUBSET_PATH" --sf 10
 fi
 

@@ -1,0 +1,13 @@
+[project]
+name = "graph_building"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "duckdb==1.4.0",
+    "imblearn",
+    "pyarrow==21.0.0",
+    "torch==2.8",
+    "torch-geometric>=2.7.0",
+]

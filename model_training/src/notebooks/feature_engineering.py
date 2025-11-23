@@ -14,6 +14,7 @@ def _():
     import torch
 
     import duckdb
+
     return duckdb, mo, os, sys, torch
 
 
@@ -36,8 +37,9 @@ def _():
     from src.gnn.nb15_gcn import NB15_GCN
     from src.gnn.const import FEATURE_ATTRIBUTES, EDGE_ATTRIBUTES, MULTICLASS_LABEL
 
-    from src.dataprep.transform import minmax_scale, groupwise_smote
-    from src.dataprep.graph_gcn import GraphGCN
+    from graph_building import minmax_scale, groupwise_smote
+    from graph_building import GraphGCN
+
     return (
         EDGE_ATTRIBUTES,
         FEATURE_ATTRIBUTES,
@@ -56,9 +58,7 @@ def _(os):
 
 @app.cell
 def _(duckdb):
-    data = duckdb.read_parquet(
-        "./data/NB15_preprocessed/raw/train.parquet"
-    )
+    data = duckdb.read_parquet("./data/NB15_preprocessed/raw/train.parquet")
     return (data,)
 
 
@@ -112,10 +112,14 @@ def _(data, mo):
 
 @app.cell
 def _(EDGE_ATTRIBUTES, FEATURE_ATTRIBUTES, MULTICLASS_LABEL, data):
-    raw_table = data.order('stime').select(
-        f"ROW_NUMBER() OVER () as index, {", ".join(FEATURE_ATTRIBUTES)}, {", ".join(EDGE_ATTRIBUTES)}, {MULTICLASS_LABEL}"
-    ).arrow().read_all()
-
+    raw_table = (
+        data.order("stime")
+        .select(
+            f"ROW_NUMBER() OVER () as index, {', '.join(FEATURE_ATTRIBUTES)}, {', '.join(EDGE_ATTRIBUTES)}, {MULTICLASS_LABEL}"
+        )
+        .arrow()
+        .read_all()
+    )
 
     raw_table
     return (raw_table,)
@@ -130,7 +134,9 @@ def _(
     raw_table,
 ):
     _table, fitted_scaler = minmax_scale(raw_table, FEATURE_ATTRIBUTES)
-    transformed_table = groupwise_smote(_table, FEATURE_ATTRIBUTES, EDGE_ATTRIBUTES, 100)
+    transformed_table = groupwise_smote(
+        _table, FEATURE_ATTRIBUTES, EDGE_ATTRIBUTES, 100
+    )
     return (transformed_table,)
 
 
@@ -172,6 +178,7 @@ def _():
     import matplotlib.pyplot as plt
     import seaborn as sns
     import numpy as np
+
     return np, plt, sns
 
 
@@ -273,6 +280,7 @@ def _():
     from sklearn.manifold import TSNE
 
     import networkx as nx
+
     return PCA, TSNE, nx
 
 

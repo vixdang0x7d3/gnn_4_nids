@@ -14,7 +14,6 @@ def _():
 
     import os.path as osp
 
-
     import torch
     import torch.nn as nn
     from torch.optim import Adadelta
@@ -31,6 +30,7 @@ def _():
     from sklearn.metrics import classification_report
     from sklearn.metrics import balanced_accuracy_score
     from sklearn.metrics import confusion_matrix
+
     return (
         Adadelta,
         RandomNodeLoader,
@@ -58,10 +58,16 @@ def _(sys):
 
     from src.gnn.nb15_gcn import NB15_GCN
     from src.gnn.helpers import train, predict
-    from src.gnn.const import FEATURE_ATTRIBUTES, EDGE_ATTRIBUTES, BINARY_LABEL, MULTICLASS_LABEL
+    from src.gnn.const import (
+        FEATURE_ATTRIBUTES,
+        EDGE_ATTRIBUTES,
+        BINARY_LABEL,
+        MULTICLASS_LABEL,
+    )
 
-    from src.dataprep.graph_gcn import GraphGCN
-    from src.dataprep.transform import groupwise_smote, minmax_scale
+    from graph_building.graph_gcn import GraphGCN
+    from graph_building.transform import groupwise_smote, minmax_scale
+
     return (
         BINARY_LABEL,
         EDGE_ATTRIBUTES,
@@ -113,40 +119,38 @@ def _(duckdb, osp):
 
     trainset_path = osp.join(raw_path, "train.parquet")
     testset_path = osp.join(raw_path, "test.parquet")
-    valset_path  = osp.join(raw_path, "val.parquet")
+    valset_path = osp.join(raw_path, "val.parquet")
 
     artifacts_path = "models/"
 
-
     # Data configuration
-    BINARY=False
-    USE_SMOTE=True
-    SMOTE_MIN_SAMPLES=100
-    SMOTE_K_NEIGHBORS=6
-    GRAPH_N_NEIGHBORS=2
+    BINARY = False
+    USE_SMOTE = True
+    SMOTE_MIN_SAMPLES = 100
+    SMOTE_K_NEIGHBORS = 6
+    GRAPH_N_NEIGHBORS = 2
 
     #  Loader configurations
-    NUM_PARTS=256
-    SHUFFLE=True
+    NUM_PARTS = 256
+    SHUFFLE = True
 
     # Model configurations
-    N_FEATURES=14
-    N_CONVS=64
-    N_HIDDEN=512
-    ALPHA=0.5
-    THETA=0.7
-    DROPOUT=0.5
-    EPOCHS=12
-
+    N_FEATURES = 14
+    N_CONVS = 64
+    N_HIDDEN = 512
+    ALPHA = 0.5
+    THETA = 0.7
+    DROPOUT = 0.5
+    EPOCHS = 12
 
     # Artifact save paths
     model_name = (
-        "gcn_nb15" + 
-        f"_{"bin" if BINARY else "multi"}" + 
-        f"_{'smotek' + str(SMOTE_K_NEIGHBORS) + 'm' + str(SMOTE_MIN_SAMPLES) if (USE_SMOTE and not BINARY) else 'no_smote'}" + 
-        f"_n{GRAPH_N_NEIGHBORS}" + 
-        f"_conv{N_CONVS}" +
-        f"_hidd{N_HIDDEN}"
+        "gcn_nb15"
+        + f"_{'bin' if BINARY else 'multi'}"
+        + f"_{'smotek' + str(SMOTE_K_NEIGHBORS) + 'm' + str(SMOTE_MIN_SAMPLES) if (USE_SMOTE and not BINARY) else 'no_smote'}"
+        + f"_n{GRAPH_N_NEIGHBORS}"
+        + f"_conv{N_CONVS}"
+        + f"_hidd{N_HIDDEN}"
     )
 
     model_save_path = osp.join(artifacts_path, model_name)
@@ -202,27 +206,25 @@ def _(
         feature_cols=", ".join(FEATURE_ATTRIBUTES),
         edge_cols=", ".join(EDGE_ATTRIBUTES),
         label=BINARY_LABEL if BINARY else MULTICLASS_LABEL,
-        parquet_path=trainset_path
+        parquet_path=trainset_path,
     )
 
     train_data = conn.sql(load_train_sql)
-
 
     load_val_query = LOAD_SQL.format(
         feature_cols=", ".join(FEATURE_ATTRIBUTES),
         edge_cols=", ".join(EDGE_ATTRIBUTES),
         label=BINARY_LABEL if BINARY else MULTICLASS_LABEL,
-        parquet_path=valset_path
+        parquet_path=valset_path,
     )
 
     val_data = conn.sql(load_val_query)
-
 
     load_test_query = LOAD_SQL.format(
         feature_cols=", ".join(FEATURE_ATTRIBUTES),
         edge_cols=", ".join(EDGE_ATTRIBUTES),
         label=BINARY_LABEL if BINARY else MULTICLASS_LABEL,
-        parquet_path=testset_path
+        parquet_path=testset_path,
     )
 
     test_data = conn.sql(load_test_query)
@@ -254,17 +256,17 @@ def _(
     train_data,
     val_data,
 ):
-    # apply transformations 
+    # apply transformations
     train_arrow = train_data.arrow().read_all()
     train_arrow, fitted_mm_scaler = minmax_scale(train_arrow, FEATURE_ATTRIBUTES)
 
     if not BINARY and USE_SMOTE:
         train_arrow = groupwise_smote(
-            table=train_arrow, 
-            feature_attrs=FEATURE_ATTRIBUTES, 
-            group_attrs=EDGE_ATTRIBUTES, 
+            table=train_arrow,
+            feature_attrs=FEATURE_ATTRIBUTES,
+            group_attrs=EDGE_ATTRIBUTES,
             min_samples=SMOTE_MIN_SAMPLES,
-            k_neighbors=SMOTE_K_NEIGHBORS
+            k_neighbors=SMOTE_K_NEIGHBORS,
         )
 
     # using scaler fitted with statistics on train set
@@ -305,33 +307,36 @@ def _(
     val_arrow,
 ):
     train_graph = GraphGCN(
-        table=train_arrow, 
-        node_attrs=FEATURE_ATTRIBUTES, 
-        edge_attrs=EDGE_ATTRIBUTES, 
+        table=train_arrow,
+        node_attrs=FEATURE_ATTRIBUTES,
+        edge_attrs=EDGE_ATTRIBUTES,
         label=BINARY_LABEL if BINARY else MULTICLASS_LABEL,
         n_neighbors=GRAPH_N_NEIGHBORS,
     ).build(include_labels=True)
 
-
     val_graph = GraphGCN(
-        table=val_arrow, 
-        node_attrs=FEATURE_ATTRIBUTES, 
-        edge_attrs=EDGE_ATTRIBUTES, 
+        table=val_arrow,
+        node_attrs=FEATURE_ATTRIBUTES,
+        edge_attrs=EDGE_ATTRIBUTES,
         label=BINARY_LABEL if BINARY else MULTICLASS_LABEL,
         n_neighbors=GRAPH_N_NEIGHBORS,
     ).build(include_labels=True)
 
     test_graph = GraphGCN(
-        table=val_arrow, 
-        node_attrs=FEATURE_ATTRIBUTES, 
-        edge_attrs=EDGE_ATTRIBUTES, 
+        table=val_arrow,
+        node_attrs=FEATURE_ATTRIBUTES,
+        edge_attrs=EDGE_ATTRIBUTES,
         label=BINARY_LABEL if BINARY else MULTICLASS_LABEL,
         n_neighbors=GRAPH_N_NEIGHBORS,
     ).build(include_labels=True)
 
-    train_loader = RandomNodeLoader(data=train_graph, num_parts=NUM_PARTS, shuffle=SHUFFLE)
+    train_loader = RandomNodeLoader(
+        data=train_graph, num_parts=NUM_PARTS, shuffle=SHUFFLE
+    )
     val_loader = RandomNodeLoader(data=val_graph, num_parts=NUM_PARTS, shuffle=SHUFFLE)
-    test_loader = RandomNodeLoader(data=test_graph, num_parts=NUM_PARTS, shuffle=SHUFFLE)
+    test_loader = RandomNodeLoader(
+        data=test_graph, num_parts=NUM_PARTS, shuffle=SHUFFLE
+    )
     return test_loader, train_graph, train_loader, val_graph, val_loader
 
 
@@ -345,10 +350,10 @@ def _(mo):
 
 @app.cell
 def _(ALPHA, BINARY, DROPOUT, NB15_GCN, N_CONVS, N_FEATURES, N_HIDDEN, THETA):
-    # Define GCN model 
+    # Define GCN model
     model = NB15_GCN(
         n_features=N_FEATURES,
-        n_classes= 2 if BINARY else 10, # binary
+        n_classes=2 if BINARY else 10,  # binary
         n_convs=N_CONVS,
         n_hidden=N_HIDDEN,
         alpha=ALPHA,
@@ -369,28 +374,23 @@ def _(mo):
 @app.cell
 def _(Adadelta, class_weight, model, nn, np, torch, train_graph, val_graph):
     # Configure device, optimizer and loss function
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
     y = train_graph.y.numpy()
     class_weights = class_weight.compute_class_weight(
-        'balanced', 
-        classes=np.unique(y), 
-        y=y
+        "balanced", classes=np.unique(y), y=y
     )
     class_weights = torch.tensor(class_weights, dtype=torch.float)
     loss_fn = nn.CrossEntropyLoss(weight=class_weights.to(device))
 
     y_val = val_graph.y.numpy()
     class_weights_val = class_weight.compute_class_weight(
-        'balanced',
+        "balanced",
         classes=np.unique(y_val),
         y=y_val,
     )
-    class_weights_val = torch.tensor(
-        class_weights_val, 
-        dtype=torch.float
-    )
+    class_weights_val = torch.tensor(class_weights_val, dtype=torch.float)
     loss_fn_val = nn.CrossEntropyLoss(weight=class_weights.to(device))
 
     optimizer = Adadelta(model.parameters())
@@ -462,9 +462,9 @@ def _(
 ):
     y_true, y_pred = predict(model, test_loader, device)
 
-    print(f'Accuracy on test: {accuracy_score(y_true, y_pred)}')
-    print(f'Balanced accuracy on test: {balanced_accuracy_score(y_true, y_pred)}')
-    print(f'\n{classification_report(y_true, y_pred, digits=3)}')
+    print(f"Accuracy on test: {accuracy_score(y_true, y_pred)}")
+    print(f"Balanced accuracy on test: {balanced_accuracy_score(y_true, y_pred)}")
+    print(f"\n{classification_report(y_true, y_pred, digits=3)}")
     return
 
 

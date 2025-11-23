@@ -4,4 +4,4 @@ notebooks:
 	uv run marimo edit --headless --watch
 
 setup_nb15:
-	(cd scripts/ && ./setup_nb15.sh)
+	./setup_nb15.sh
