@@ -22,7 +22,7 @@ class FeatureTransformer:
         )
 
         self.aggregation_sql = SQL.from_file(
-            SQL_DIR / "features" / "aggregate_features.sql"
+            SQL_DIR / "features" / "aggregate_og_features.sql"
         )
 
     def aggregate_features(self, duration_seconds: int | None):

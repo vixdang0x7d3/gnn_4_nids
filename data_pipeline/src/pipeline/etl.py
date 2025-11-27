@@ -47,7 +47,7 @@ class ZeekETLPipeline:
         for sql_file in [
             "create_raw_conn.sql",
             "create_raw_unsw_extra.sql",
-            "create_features.sql",
+            "create_og_nb15_features.sql",
             "create_indices.sql",
         ]:
             sql = SQL.from_file(SQL_DIR / "schema" / sql_file)
