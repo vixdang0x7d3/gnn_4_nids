@@ -1,0 +1,28 @@
+-- Computed UNSW-NB15 features table
+CREATE TABLE IF NOT EXISTS og_features (
+    uid VARCHAR PRIMARY KEY,
+    src_ip VARCHAR,
+    src_port BIGINT,
+    dst_ip VARCHAR,
+    dst_port BIGINT,
+    proto VARCHAR,
+    service VARCHAR,
+    state VARCHAR,
+    sttl BIGINT,
+    dur DOUBLE,
+    sintpkt DOUBLE,
+    dintpkt DOUBLE,
+    ct_dst_sport_ltm BIGINT,
+    tcprtt DOUBLE,
+    sbytes BIGINT,
+    dbytes BIGINT,
+    smeanz DOUBLE,
+    dmeanz DOUBLE,
+    sload DOUBLE,
+    dload DOUBLE,
+    spkts BIGINT,
+    dpkts BIGINT,
+    stime DOUBLE,
+    dtime DOUBLE,
+    computed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)

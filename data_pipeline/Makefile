@@ -1,13 +1,4 @@
-.PHONY: notebooks up down
+.PHONY: notebooks up down logs
 
 notebooks:
 	@uv run marimo edit . --headless
-
-up:
-	@docker compose up -d
-
-down:
-	@docker compose down
-
-logs:
-	@docker compose logs

@@ -7,6 +7,7 @@ requires-python = ">=3.13"
 dependencies = [
     "altair>=5.5.0",
     "anyio==4.10.0",
+    "boto3>=1.41.4",
     "click==8.2.1",
     "docutils==0.22",
     "duckdb==1.4.0",
@@ -19,6 +20,7 @@ dependencies = [
     "jedi==0.19.2",
     "loro==1.6.0",
     "markdown==3.8.2",
+    "mlflow>=3.6.0",
     "narwhals==2.2.0",
     "numpy==2.3.2",
     "packaging==25.0",

@@ -20,5 +20,13 @@ model_training/models/*
 data_pipeline/data/*
 zeek/zeek_logs/*
 
+## Infra
+infrastructure/.env
+infrastructure/postgres_data/
+infrastructure/minio_data/
+infrastructure/kafka_data
+!infrastructure/.env.example
+
 # Hehe
 **/CLAUDE.md
+

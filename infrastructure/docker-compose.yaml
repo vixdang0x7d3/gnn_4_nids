@@ -1,0 +1,178 @@
+services:
+  # ============================================
+  # KAFKA STACK (streaming message queue)
+  # ============================================
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    hostname: zookeeper
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo 'ruok' | nc localhost 2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ml_platform
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_logs:/var/lib/zookeeper/log
+
+  broker:
+    image: confluentinc/cp-kafka:7.4.0
+    hostname: broker
+    container_name: broker
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+      - "9101:9101"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CONFLUENT_BALANCER_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: localhost
+    healthcheck:
+      test: ["CMD", "bash", "-c", "nc -z localhost 9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ml_platform
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+
+  # ============================================
+  # MINIO (S3-compatible object storage)
+  # ============================================
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    hostname: minio
+    ports:
+      - "9000:9000" # API endpoint
+      - "9001:9001" # Web UI
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-admin} 
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - ml_platform
+    volumes:
+      - minio_data:/data
+
+  # MinIO client for bucket initialization
+  minio-init:
+    image: minio/mc:latest
+    container_name: minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set nids_minio http://minio:9000 ${MINIO_ROOT_USER:-admin} ${MINIO_ROOT_PASSWORD:-minioadmin123};
+      mc mb myminio/mlflow-artifacts --ignore-existing;
+      mc mb myminio/model-registry --ignore-existing;
+      mc mb myminio/datasets --ignore-existing;
+      mc mb myminio/graph-cache --ignore-existing;
+      mc anonymous set download myminio/mlflow-artifacts;
+      exit 0;
+      "
+    networks:
+      - ml_platform
+
+  # ============================================
+  # POSTGRESQL (MLflow metadata store)
+  # ============================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: mlflow-postgres
+    hostname: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-mlflow}
+      POSTGRES_USER: ${POSTGRES_USER:-mlflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mlflow123}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mlflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ml_platform
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # ============================================
+  # MLFLOW (Experiment tracking & model registry)
+  # ============================================
+  mlflow:
+    build:
+      context: ./mlflow
+      dockerfile: Dockerfile
+    image: mlflow-custom:latest
+    container_name: mlflow-server
+    hostname: mlflow
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    ports:
+      - "5000:5000"
+    environment:
+      # S3 (MinIO) configuration
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-admin}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      # PostgreSQL backend store
+      MLFLOW_BACKEND_STORE_URI: postgresql://${POSTGRES_USER:-mlflow}:${POSTGRES_PASSWORD:-mlflow123}@postgres:5432/${POSTGRES_DB:-mlflow}
+      MLFLOW_ARTIFACT_ROOT: s3://mlflow-artifacts
+    command: >
+      mlflow server
+        --backend-store-uri postgresql://${POSTGRES_USER:-mlflow}:${POSTGRES_PASSWORD:-mlflow123}@postgres:5432/${POSTGRES_DB:-mlflow}
+        --default-artifact-root s3://mlflow-artifacts
+        --host 0.0.0.0
+        --port 5000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - ml_platform
+
+networks:
+  ml_platform:
+    driver: bridge
+    name: ml_platform
+
+volumes:
+  zookeeper_data:
+    name: zookeeper_data
+  zookeeper_logs:
+    name: zookeeper_logs
+  kafka_data:
+    name: kafka_data
+  minio_data:
+    name: minio_data
+  postgres_data:

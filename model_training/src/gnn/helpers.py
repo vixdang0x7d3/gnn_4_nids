@@ -5,6 +5,7 @@ import numpy as np
 
 import torch
 import torch.nn.functional as F
+import mlflow
 
 
 def train(
@@ -30,7 +31,13 @@ def train(
     trigger_time = 0
     last_loss = np.inf
     best_model = None
-
+    global_step = 0 
+    history = {
+        "train_batch_loss": [],
+        "train_epoch_loss": [],
+        "val_loss": [],         
+        "val_acc": []           
+    }
     for epoch in range(epochs):
         # Measure the elapsed time of each epoch
         t0_epoch, t0_batch = time.time(), time.time()
@@ -57,7 +64,10 @@ def train(
 
             # CrossEntropyLoss already apply softmax
             loss = loss_fn(output, target)
-
+            current_loss=loss.item()
+            mlflow.log_metric("train_batch_loss", current_loss, step=global_step)
+            global_step += 1
+            history["train_batch_loss"].append(current_loss)
             batch_loss += loss.item()
             total_loss += loss.item()
 
@@ -79,6 +89,7 @@ def train(
                 t0_batch = time.time()
 
         avg_train_loss = total_loss / len(train_dataloader)
+        mlflow.log_metric("train_epoch_loss", avg_train_loss, step=epoch)
         print("-" * 70)
 
         if eval:
@@ -87,6 +98,10 @@ def train(
             val_loss, val_accuracy = evaluate(
                 model, val_dataloader, loss_fn_val, device
             )
+            mlflow.log_metric("val_loss", val_loss, step=epoch)
+            mlflow.log_metric("val_accuracy", val_accuracy, step=epoch)
+            history["val_loss"].append(val_loss)
+            history["val_acc"].append(val_accuracy)
 
             # Log performance over the entire training data
             time_elapsed = time.time() - t0_epoch
@@ -116,16 +131,18 @@ def train(
             else:
                 last_loss = avg_train_loss
                 best_model = model.state_dict()
-                trigger_times = 0
+                trigger_time = 0
 
-            if trigger_times >= patience:
+            if trigger_time >= patience:
                 torch.save(best_model, osp.join(model_path, f"{model_name}.h5"))
                 break
+
 
         torch.save(
             model.state_dict() if best_model is None else best_model,
             osp.join(model_path, f"{model_name}.h5"),
         )
+    return history    
 
 
 def evaluate(model, val_dataloader, loss_fn, device):
