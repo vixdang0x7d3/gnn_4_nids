@@ -12,13 +12,14 @@ wheels/
 # Virtual environments
 model_training/.venv
 
-# Prevent uploading data and model files
+# Data and model files
 model_training/data/*
 model_training/models/*
 
 # Test data
 data_pipeline/data/*
 zeek/zeek_logs/*
+zeek/test_pcaps/*
 
 ## Infra
 infrastructure/.env
@@ -29,4 +30,3 @@ infrastructure/kafka_data
 
 # Hehe
 **/CLAUDE.md
-

@@ -1,39 +1,47 @@
-# Zeek Network Traffic Analysis with Kafka Streaming
+# Zeek UNSW-NB15 Feature Extraction + Kafka Streaming
 
-This setup captures network traffic with Zeek, extracts custom UNSW-NB15 features, and streams logs to both local files and Kafka.
+Extract NF-UNSW-NB15-v2 compatible features from network traffic and stream to Kafka.
 
-## Features
+## Quick Test
 
-- **Real-time packet capture** from network interface
-- **Custom UNSW-NB15 features extraction**: TCP RTT, packet timing, TTL values, packet sizes
-- **Dual output**: Local log files + Kafka streaming
-- **Docker-based**: Isolated, reproducible environment
+```bash
+cd /home/v/works/gnn_4_nids
 
-## Workflow
+# 1. Start Kafka
+cd infrastructure && make up-base
+
+# 2. Test Zeek → Kafka with PCAP
+cd ../zeek
+docker run --rm --network ml_platform \
+  -v $(pwd):/scripts:ro \
+  -v $(pwd)/../data_pipeline/data/pcaps:/pcaps:ro \
+  -e ZEEK_KAFKA_BROKER=broker:29092 \
+  -e ZEEK_KAFKA_TOPIC=zeek.logs \
+  zeek_streaming:latest \
+  zeek -C -r /pcaps/quickstart.pcap \
+    /scripts/unsw-nb15-features.zeek \
+    /scripts/unsw-nb15-kafka.zeek
+
+# 3. Verify output in Kafka
+cd ../infrastructure
+docker exec -it broker kafka-console-consumer \
+  --bootstrap-server localhost:9092 \
+  --topic zeek.logs \
+  --from-beginning --max-messages 5
 ```
-Network Traffic (wlo1)
-        |
-        v
-Zeek (Docker Container)
-├── unsw-extra.zeek (custom features)
-├── writekafka.zeek (Kafka streaming)
-        |
-        v
-Outputs:
-├── Local Files: zeek_logs/*.log
-└── Kafka: localhost:9092/zeek-logs
+
+## Live Capture
+
+```bash
+docker run -d --name zeek-producer \
+  --network host --privileged \
+  -v $(pwd):/scripts:ro \
+  -e ZEEK_KAFKA_BROKER=localhost:9092 \
+  -e ZEEK_KAFKA_TOPIC=zeek.logs \
+  zeek_streaming:latest \
+  zeek -C -i wlan0 /scripts/unsw-nb15-kafka.zeek
 ```
 
-## Custom Features (unsw-extra.zeek)
+## Features: 34 fields including TCP flags, TTL, packet times/sizes, DNS, FTP, ICMP
 
-The `unsw-extra.log` captures UNSW-NB15 dataset features:
-
-| Field | Description |
-|-------|-------------|
-| `tcp_rtt` | TCP round-trip time estimate |
-| `src_pkt_times` | Vector of source packet timestamps |
-| `dst_pkt_times` | Vector of destination packet timestamps |
-| `src_ttl` | Source TTL value |
-| `dst_ttl` | Destination TTL value |
-| `src_pkt_sizes` | Vector of source packet sizes |
-| `dst_pkt_sizes` | Vector of destination packet sizes |
+See unsw-nb15-features.zeek for full list.
