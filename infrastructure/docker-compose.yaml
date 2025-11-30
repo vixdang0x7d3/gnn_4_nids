@@ -34,7 +34,7 @@ services:
       - "9101:9101"
     environment:
       KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:29092,PLAINTEXT_HOST://localhost:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
@@ -66,7 +66,7 @@ services:
       - "9000:9000" # API endpoint
       - "9001:9001" # Web UI
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-admin} 
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-admin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
     command: server /data --console-address ":9001"
     healthcheck:
@@ -100,11 +100,11 @@ services:
       - ml_platform
 
   # ============================================
-  # POSTGRESQL (MLflow metadata store)
+  # POSTGRESQL (MLflow and Airflow metadata store)
   # ============================================
   postgres:
     image: postgres:15-alpine
-    container_name: mlflow-postgres
+    container_name: postgres
     hostname: postgres
     ports:
       - "5432:5432"
@@ -121,6 +121,7 @@ services:
       - ml_platform
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh
 
   # ============================================
   # MLFLOW (Experiment tracking & model registry)
@@ -161,6 +162,188 @@ services:
     networks:
       - ml_platform
 
+  airflow-webserver:
+    build:
+      context: ./airflow
+      dockerfile: Dockerfile
+    image: airflow-gnn-nids:latest
+    container_name: airflow-webserver
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${POSTGRES_USER:-mlflow}:${POSTGRES_PASSWORD:-mlflow123}@postgres:5432/airflow
+      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW__CORE__FERNET_KEY}
+      - AIRFLOW__API__SECRET_KEY=${AIRFLOW__CORE__SECRET_KEY}
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=False
+      # AWS/S3 credentials for boto3 (MinIO)
+      - AWS_ACCESS_KEY_ID=${MINIO_ROOT_USER:-admin}
+      - AWS_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD:-minioadmin123}
+    volumes:
+      - ./airflow/logs:/opt/airflow/logs
+      - ../data_pipeline/airflow/dags:/opt/airflow/dags
+      - duckdb_data:/data
+      - archive_data:/data/archive
+    command: api-server
+    networks:
+      - ml_platform
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  airflow-scheduler:
+    build:
+      context: ./airflow
+      dockerfile: Dockerfile
+    image: airflow-gnn-nids:latest
+    container_name: airflow-scheduler
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${POSTGRES_USER:-mlflow}:${POSTGRES_PASSWORD:-mlflow123}@postgres:5432/airflow
+      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW__CORE__FERNET_KEY}
+      - AIRFLOW__API__SECRET_KEY=${AIRFLOW__CORE__SECRET_KEY}
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=False
+      # AWS/S3 credentials for boto3 (MinIO)
+      - AWS_ACCESS_KEY_ID=${MINIO_ROOT_USER:-admin}
+      - AWS_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD:-minioadmin123}
+    volumes:
+      - ./airflow/logs:/opt/airflow/logs
+      - ../data_pipeline/airflow/dags:/opt/airflow/dags
+      - duckdb_data:/data
+      - archive_data:/data/archive
+    command: scheduler
+    networks:
+      - ml_platform
+    healthcheck:
+      test: ["CMD", "airflow", "jobs", "check", "--job-type", "SchedulerJob"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  airflow-dag-processor:
+    build:
+      context: ./airflow
+      dockerfile: Dockerfile
+    image: airflow-gnn-nids:latest
+    container_name: airflow-dag-processor
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${POSTGRES_USER:-mlflow}:${POSTGRES_PASSWORD:-mlflow123}@postgres:5432/airflow
+      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW__CORE__FERNET_KEY}
+      - AIRFLOW__API__SECRET_KEY=${AIRFLOW__CORE__SECRET_KEY}
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      # AWS/S3 credentials for boto3 (MinIO)
+      - AWS_ACCESS_KEY_ID=${MINIO_ROOT_USER:-admin}
+      - AWS_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD:-minioadmin123}
+    volumes:
+      - ./airflow/logs:/opt/airflow/logs
+      - ../data_pipeline/airflow/dags:/opt/airflow/dags
+      - duckdb_data:/data
+      - archive_data:/data/archive
+    command: dag-processor
+    networks:
+      - ml_platform
+    healthcheck:
+      test: ["CMD", "airflow", "jobs", "check", "--job-type", "DagProcessorJob"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  airflow-init:
+    build:
+      context: ./airflow
+      dockerfile: Dockerfile
+    image: airflow-gnn-nids:latest
+    container_name: airflow-init
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${POSTGRES_USER:-mlflow}:${POSTGRES_PASSWORD:-mlflow123}@postgres:5432/airflow
+      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW__CORE__FERNET_KEY}
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        echo "Initializing Airflow database..."
+        airflow db migrate
+        echo "✅ Airflow initialized successfully"
+        echo "Default user: admin (password in webserver logs)"
+    networks:
+      - ml_platform
+
+  # ============================================
+  # STREAMING PIPELINE (Zeek -> Kafka -> DuckDB)
+  # ============================================
+  pipeline:
+    build:
+      context: ./pipeline
+      dockerfile: Dockerfile
+    image: zeek-streaming-pipeline:latest
+    container_name: zeek-streaming-pipeline
+    depends_on:
+      broker:
+        condition: service_healthy
+    restart: unless-stopped
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=broker:29092
+      - KAFKA_TOPIC=zeek.logs
+      - KAFKA_GROUP_ID=zeek-consumer
+    volumes:
+      - duckdb_data:/data
+      - archive_data:/data/archive
+    command: >
+      python -m pipeline.etl
+        --db-path /data/zeek_features.db
+        --bootstrap-servers broker:29092
+        --topic zeek.logs
+        --group-id zeek-consumer
+        --hot-window-hours 24
+        --aggregation-interval 5
+        --archive-interval 21600
+    networks:
+      - ml_platform
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'pipeline.etl' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
 networks:
   ml_platform:
     driver: bridge
@@ -176,3 +359,8 @@ volumes:
   minio_data:
     name: minio_data
   postgres_data:
+    name: postgres_data
+  duckdb_data:
+    name: duckdb_data
+  archive_data:
+    name: archive_data

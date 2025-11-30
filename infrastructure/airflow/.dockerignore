@@ -1,0 +1,6 @@
+# Exclude everything except what we need
+*
+
+# Include only what's needed for the build
+!requirements.txt
+!packages/*.whl

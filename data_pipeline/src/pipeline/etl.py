@@ -104,7 +104,7 @@ def main():
     parser.add_argument(
         "--bootstrap-servers",
         type=str,
-        default="localhost:9092",
+        default="broker:29092",
         help="Kafka bootstrap servers",
     )
     parser.add_argument(
