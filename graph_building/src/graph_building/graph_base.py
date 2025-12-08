@@ -42,6 +42,20 @@ class GraphBase(ABC):
         of input data ordering
         """
 
+        # Sort by edge attributes and time
+        sort_keys = [
+            (col, order)
+            for col, order in [
+                ("proto", "ascending"),
+                ("state", "ascending"),
+                ("service", "ascending"),
+                ("stime", "ascending"),
+            ]
+            if col in table.column_names
+        ]
+        table.sort_by(sort_keys)
+
+        # Create a sequential index on sorted data
         n_rows = table.num_rows
         index_array = pa.array(range(n_rows), type=pa.int64())
 

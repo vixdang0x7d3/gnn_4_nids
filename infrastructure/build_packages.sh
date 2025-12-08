@@ -1,16 +1,19 @@
 #!/bin/bash
 set -e
 
-echo "Building local Python packages for Airflow..."
+echo "Building local Python packages for Airflow and ETL pipeline..."
 echo ""
-
-# Create packages directory
-mkdir -p airflow/packages
-rm -f airflow/packages/*.whl
 
 # Get absolute paths
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+
+# Create packages directory
+mkdir -p "$SCRIPT_DIR/airflow/packages"
+rm -f "$SCRIPT_DIR/airflow/packages/*.whl"
+
+mkdir -p "$SCRIPT_DIR/pipeline/packages"
+rm -f "$SCRIPT_DIR/pipeline/packages/*.whl"
 
 # Build graph_building (base dependency)
 echo "Building graph_building..."
@@ -39,8 +42,13 @@ echo "Packages created:"
 ls -lh "$SCRIPT_DIR/airflow/packages/"*.whl
 echo ""
 
-# Copy data_pipeline wheel to streaming-pipeline directory
-echo "Copying data_pipeline wheel to streaming-pipeline..."
-mkdir -p "$SCRIPT_DIR/streaming-pipeline/packages"
-cp "$SCRIPT_DIR/airflow/packages/data_pipeline-"*.whl "$SCRIPT_DIR/streaming-pipeline/packages/"
+# Copy data_pipeline wheel to pipeline directory
+echo "Copying wheels to streaming-pipeline..."
+cp "$SCRIPT_DIR/airflow/packages/graph_building-"*.whl "$SCRIPT_DIR/pipeline/packages/"
+cp "$SCRIPT_DIR/airflow/packages/data_pipeline-"*.whl "$SCRIPT_DIR/pipeline/packages/"
+
+echo "Packages are copied:"
+ls -lh "$SCRIPT_DIR/pipeline/packages/"*.whl
+echo ""
+
 echo "Done!"

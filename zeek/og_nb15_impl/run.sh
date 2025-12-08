@@ -33,8 +33,8 @@ Examples:
     $0 logs -f                             # Follow logs
 
 Environment variables:
-    KAFKA_BROKER    Kafka broker address (default: localhost:9092)
-    KAFKA_TOPIC     Kafka topic name (default: zeek-logs)
+    KAFKA_BROKER    Kafka broker address (default: broker:29092)
+    KAFKA_TOPIC     Kafka topic name (default: zeek.logs)
 
 Note: This is the original implementation using unsw-extra.zeek
       For the full NF-UNSW-NB15-v3 implementation, use ../nf_nb15_impl/run-zeek-kafka.sh
@@ -44,7 +44,7 @@ EOF
 check_kafka() {
     echo -e "${YELLOW}Checking Kafka...${NC}"
     if ! docker ps | grep -q broker; then
-        echo -e "${RED Kafka broker not running!${NC}"
+        echo -e "${RED} Kafka broker not running!${NC}"
         echo "Start it with: cd ../../infrastructure && make up-base"
         exit 1
     fi

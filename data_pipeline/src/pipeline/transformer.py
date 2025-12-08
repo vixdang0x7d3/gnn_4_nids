@@ -7,22 +7,23 @@ import duckdb
 from sqlutils import SQL
 
 logger = logging.getLogger(__name__)
-SQL_DIR = Path(__file__).parent.parent / "sql"
 
 
 class FeatureTransformer:
     """Transforms raw Zeek logs to UNSW-NB15 features using delta processing."""
 
-    def __init__(self, db_path: str, aggregation_interval_sec: int = 5):
+    def __init__(
+        self, db_path: str, sql_dir: Path | str, aggregation_interval_sec: int = 5
+    ):
         self.db_path = db_path
         self.aggregation_interval_sec = aggregation_interval_sec
 
         self.get_last_stime_sql = SQL.from_file(
-            SQL_DIR / "features" / "get_last_computed_stime.sql"
+            Path(sql_dir) / "features" / "get_last_computed_stime.sql"
         )
 
         self.aggregation_sql = SQL.from_file(
-            SQL_DIR / "features" / "aggregate_og_features.sql"
+            Path(sql_dir) / "features" / "aggregate_og_features.sql"
         )
 
     def aggregate_features(self, duration_seconds: int | None):
@@ -48,9 +49,7 @@ class FeatureTransformer:
 
                     bound_sql = self.aggregation_sql(last_stime=last_stime)
                     cursor.execute(*bound_sql.duck)
-
-                    _result = cursor.execute("SELECT changes()").fetchone()
-                    rows_affected = _result[0] if _result else 0
+                    rows_affected = cursor.rowcount
 
                     if rows_affected > 0:
                         logger.info(f"Faeture aggregation: {rows_affected} rows")

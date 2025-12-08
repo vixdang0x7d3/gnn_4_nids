@@ -11,7 +11,6 @@ from confluent_kafka import Consumer, KafkaError
 from sqlutils import SQL
 
 logger = logging.getLogger(__name__)
-SQL_DIR = Path(__file__).parent.parent / "sql"
 
 
 class ZeekLoader:
@@ -20,6 +19,7 @@ class ZeekLoader:
     def __init__(
         self,
         db_path: str,
+        sql_dir: Path | str,
         bootstrap_servers: str,
         topic: str,
         group_id: str = "zeek-consumer",
@@ -32,10 +32,10 @@ class ZeekLoader:
         self.batch_size = batch_size
 
         self.insert_conn_sql = SQL.from_file(
-            SQL_DIR / "inserts" / "insert_raw_conn.sql"
+            Path(sql_dir) / "inserts" / "insert_raw_conn.sql"
         )
         self.insert_unsw_sql = SQL.from_file(
-            SQL_DIR / "inserts" / "insert_raw_unsw.sql"
+            Path(sql_dir) / "inserts" / "insert_raw_unsw_extra.sql"
         )
 
     def consume_and_insert(self, duration_seconds: int | None):
@@ -160,11 +160,11 @@ class ZeekLoader:
         cursor = conn.cursor()
 
         if conn_batch:
-            bulk_conn = self.insert_conn_sql.bind_many(conn_batch)
-            cursor.executemany(*bulk_conn.duck_many)
+            bulk_conn = self.insert_conn_sql(conn_batch)
+            cursor.executemany(*bulk_conn.duck)
 
         if unsw_batch:
-            bulk_unsw = self.insert_unsw_sql.bind_many(unsw_batch)
-            cursor.executemany(*bulk_unsw.duck_many)
+            bulk_unsw = self.insert_unsw_sql(unsw_batch)
+            cursor.executemany(*bulk_unsw.duck)
 
         cursor.close()

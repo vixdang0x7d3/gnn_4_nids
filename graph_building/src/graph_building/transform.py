@@ -1,7 +1,6 @@
 import numpy as np
 import pyarrow as pa
 import pyarrow.compute as pc
-
 from imblearn.over_sampling import SMOTE
 from sklearn.preprocessing import MinMaxScaler
 
@@ -64,8 +63,6 @@ def groupwise_smote(
     the sequential index will be lost. After SMOTE, a new sequential
     index should be created if needed.
     """
-
-    # print(table)
 
     valid_groups = (
         table.filter(pc.field(label) != pc.scalar(0))

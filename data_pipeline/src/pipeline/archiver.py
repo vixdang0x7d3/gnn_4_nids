@@ -10,7 +10,6 @@ import duckdb
 from sqlutils import SQL
 
 logger = logging.getLogger(__name__)
-SQL_DIR = Path(__file__).parent.parent / "sql"
 
 
 class DataArchiver:
@@ -19,22 +18,25 @@ class DataArchiver:
     def __init__(
         self,
         db_path: str,
-        hot_window_hours: int = 24,
+        archive_path: Path | str,
+        sql_dir: Path | str,
         archive_interval_sec: int = 21600,
     ):
         self.db_path = db_path
-        self.hot_window_hours = hot_window_hours
+        self.archive_path = Path(archive_path)
         self.archive_interval_sec = archive_interval_sec
 
-        self.export_sql = SQL.from_file(SQL_DIR / "archival" / "export_features.sql")
+        self.export_sql = SQL.from_file(
+            Path(sql_dir) / "archival" / "export_features.sql"
+        )
         self.delete_conn_sql = SQL.from_file(
-            SQL_DIR / "archival" / "delete_old_conn.sql"
+            Path(sql_dir) / "archival" / "delete_old_conn.sql"
         )
         self.delete_unsw_sql = SQL.from_file(
-            SQL_DIR / "archival" / "delete_old_unsw.sql"
+            Path(sql_dir) / "archival" / "delete_old_unsw.sql"
         )
         self.delete_features_sql = SQL.from_file(
-            SQL_DIR / "archival" / "delete_old_features.sql"
+            Path(sql_dir) / "archival" / "delete_old_features.sql"
         )
 
     def archive_old_data(self, duration_seconds: int | None = None):
@@ -51,9 +53,13 @@ class DataArchiver:
             ):
                 try:
                     cutoff_ts = (
-                        datetime.now() - timedelta(hours=self.hot_window_hours)
+                        datetime.now() - timedelta(seconds=self.archive_interval_sec)
                     ).timestamp()
-                    output_path = f"data/archive/features_{datetime.now().strftime('%Y-%m-%d')}.parquet"
+
+                    output_path = str(
+                        self.archive_path
+                        / f"features_{datetime.now().strftime('%Y-%m-%d')}.parquet"
+                    )
 
                     # Export and delete
                     cursor.execute(
@@ -63,16 +69,13 @@ class DataArchiver:
                     )
 
                     cursor.execute(*self.delete_conn_sql(cutoff_ts=cutoff_ts).duck)
-                    _result = cursor.execute("SELECT changes()").fetchone()
-                    deleted_conn = _result[0] if _result else 0
+                    deleted_conn = cursor.rowcount
 
                     cursor.execute(*self.delete_unsw_sql(cutoff_ts=cutoff_ts).duck)
-                    _result = cursor.execute("SELECT changes()").fetchone()
-                    deleted_unsw = _result[0] if _result else 0
+                    deleted_unsw = cursor.rowcount
 
                     cursor.execute(*self.delete_features_sql(cutoff_ts=cutoff_ts).duck)
-                    _result = cursor.execute("SELECT changes()").fetchone()
-                    deleted_features = _result[0] if _result else 0
+                    deleted_features = cursor.rowcount
 
                     logger.info(
                         f"Archived: {deleted_conn} conn, {deleted_unsw} unsw, {deleted_features} features"

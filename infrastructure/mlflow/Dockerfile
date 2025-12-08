@@ -1,7 +1,7 @@
-FROM ghcr.io/mlflow/mlflow:v2.16.2
+FROM ghcr.io/mlflow/mlflow:v3.6.0
 
 # Install PostgreSQL client library
-RUN pip install --no-cache-dir psycopg2-binary
+RUN pip install --no-cache-dir psycopg2-binary boto3
 
 # Use psycopg2-binary for easier installation without needing PostgreSQL dev libraries
 # If you need the full psycopg2, you'd need to install build dependencies first:

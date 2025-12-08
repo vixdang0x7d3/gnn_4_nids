@@ -18,7 +18,6 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
-SQL_DIR = Path(__file__).parent.parent / "sql"
 
 
 class ZeekETLPipeline:
@@ -27,17 +26,24 @@ class ZeekETLPipeline:
     def __init__(
         self,
         db_path: str,
+        archive_path: str,
+        sql_dir: Path | str,
         bootstrap_servers: str,
         topic: str,
         group_id: str = "zeek-consumer",
-        hot_window_hours: int = 24,
         aggregation_interval_sec: int = 5,
         archive_interval_sec: int = 21600,
     ):
         self.db_path = db_path
-        self.loader = ZeekLoader(db_path, bootstrap_servers, topic, group_id)
-        self.transformer = FeatureTransformer(db_path, aggregation_interval_sec)
-        self.archiver = DataArchiver(db_path, hot_window_hours, archive_interval_sec)
+        self.archive_path = archive_path
+        self.sql_dir = Path(sql_dir)
+        self.loader = ZeekLoader(db_path, sql_dir, bootstrap_servers, topic, group_id)
+        self.transformer = FeatureTransformer(
+            db_path, sql_dir, aggregation_interval_sec
+        )
+        self.archiver = DataArchiver(
+            db_path, archive_path, sql_dir, archive_interval_sec
+        )
 
     def init_db(self):
         """Initialize DuckDB schema."""
@@ -50,7 +56,7 @@ class ZeekETLPipeline:
             "create_og_nb15_features.sql",
             "create_indices.sql",
         ]:
-            sql = SQL.from_file(SQL_DIR / "schema" / sql_file)
+            sql = SQL.from_file(self.sql_dir / "schema" / sql_file)
             cursor.execute(*sql.duck)
 
         logger.info("Database schema initialized")
@@ -60,6 +66,8 @@ class ZeekETLPipeline:
     def run(self, duration_seconds: int | None = None):
         """Start all threads."""
         logger.info("Starting Zeek ETL pipeline")
+
+        self.init_db()
 
         threads = [
             threading.Thread(
@@ -98,8 +106,20 @@ def main():
     parser.add_argument(
         "--db-path",
         type=str,
-        default="zeek_features.db",
+        default="/data/features.db",
         help="Path to DuckDB database file",
+    )
+    parser.add_argument(
+        "--archive-path",
+        type=str,
+        default="/data/archive",
+        help="Path to archive directory",
+    )
+    parser.add_argument(
+        "--sql-dir",
+        type=str,
+        default="/sql",
+        help="Path to SQL statements directory",
     )
     parser.add_argument(
         "--bootstrap-servers",
@@ -114,16 +134,10 @@ def main():
         "--group-id", type=str, default="zeek-consumer", help="Kafka consumer group ID"
     )
     parser.add_argument(
-        "--hot-window-hours",
-        type=int,
-        default=24,
-        help="Hours of data to keep in hot storage",
-    )
-    parser.add_argument(
         "--aggregation-interval",
         type=int,
-        default=5,
-        help="Feature aggregation interval in seconds",
+        default=3600,
+        help="Aggregation interval in seconds (default: 1 hour)",
     )
     parser.add_argument(
         "--archive-interval",
@@ -142,10 +156,11 @@ def main():
 
     pipeline = ZeekETLPipeline(
         db_path=args.db_path,
+        archive_path=args.archive_path,
+        sql_dir=args.sql_dir,
         bootstrap_servers=args.bootstrap_servers,
         topic=args.topic,
         group_id=args.group_id,
-        hot_window_hours=args.hot_window_hours,
         aggregation_interval_sec=args.aggregation_interval,
         archive_interval_sec=args.archive_interval,
     )

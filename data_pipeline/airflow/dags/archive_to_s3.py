@@ -1,13 +1,10 @@
 """
 Archive old features from DuckDB to S3-compatible storage.
 
-Resue archival logic from data_pipeline/src/pipeline/archiver.py
-
 Workflow:
-1. Export features older than 24 hours to Parquet
+1. Find parquet files in local archival directory
 2. Upload to S3-compatible storage (MinIO or AWS S3)
-3. Delete old data from DuckDB
-4. Clean up
+3. Delete old parquet files after N days
 
 Schedule: Every 6 hours
 
@@ -78,7 +75,7 @@ def archive_to_s3():
             files_info.append(
                 {
                     "local_path": str(file_path),
-                    "filename": file_path.name,
+                    "file_name": file_path.name,
                     "size_bytes": file_size,
                     "modified_time": file_path.stat().st_mtime,
                 }
@@ -94,12 +91,12 @@ def archive_to_s3():
         }
 
     @task()
-    def upload_to_s3(export_info):
+    def upload_to_s3(scan_info):
         """Upload exported Parquet file to S3-compatible storage."""
-        # Initialize S3 client.
+
         s3_client = boto3.client(
             "s3",
-            endpoint_url="httpL//minio:9000",  # For MinIO; omit for AWS S3
+            endpoint_url="http://minio:9000",  # For MinIO; omit for AWS S3
             aws_access_key_id="admin",
             aws_secret_access_key="minio123",
             region_name="us-east-1",
@@ -115,28 +112,43 @@ def archive_to_s3():
             s3_client.create_bucket(Bucket=bucket_name)
             print(f"Created bucket: {bucket_name}")
 
-        # Upload_file
-        local_path = export_info["output_path"]
-        s3_key = f"archive/features/{export_info['date_str']}.parquet"
+        uploaded_files = []
+        for si in scan_info["files"]:
+            local_path = si["output_path"]
+            file_name = si["file_name"]
 
-        # Upload file to S3
-        s3_client.upload_file(local_path, bucket_name, s3_key)
+            # archiver already timestamped the file.
+            s3_key = f"archive/features/{file_name}"
 
-        file_size_mb = Path(local_path).stat().st_size / (1024 * 1024)
+            s3_client.upload_file(local_path, bucket_name, s3_key)
 
-        print(f"Uploaded to S3: s3://{bucket_name}/{s3_key}")
-        print(f"File size: {file_size_mb:.2f} MB")
+            file_size_mb = si["size_bytes"] / (1024 * 1024)
+
+            print(f"Uploaded S3: s3://{bucket_name}/{s3_key}")
+            print(f"File size: {file_size_mb:.2f} MB")
+
+            uploaded_files.append(si)
+
+        total_uploaded_mb = sum(f["size_bytes"] for f in uploaded_files) / (1024 * 1024)
+
+        print("\nUploaded summary:")
+        print(f"  Uploaded: {len(uploaded_files)} files ({total_uploaded_mb:.2f} MB)")
 
         return {
             "bucket": bucket_name,
-            "s3_key": s3_key,
-            "size_bytes": Path(local_path).stat().st_size,
-            "size_mb": file_size_mb,
+            "uploaded_files": uploaded_files,
+            "total_uploaded": len(uploaded_files),
+            "total_uploaded_mb": total_uploaded_mb,
         }
 
     @task()
     def cleanup_old_parquets(upload_info):
         """Delete local parquet files older than retention period."""
+
+        # Skip if nothing was uploaded
+        if not upload_info["uploaded_files"]:
+            raise AirflowSkipException("No files were uploaded, skipping cleanup")
+
         cutoff_time = (
             datetime.now() - timedelta(days=LOCAL_RETENTION_DAYS)
         ).timestamp()
@@ -145,21 +157,21 @@ def archive_to_s3():
         kept_files = []
 
         for file_info in upload_info["uploaded_files"]:
-            local_path = Path(file_info["filename"])
-            full_path = ARCHIVE_DIR / local_path
+            local_path = Path(file_info["local_path"])
 
-            if not full_path.exists():
+            if not local_path.exists():
+                print(f"File already deleted: {local_path}")
                 continue
 
-            file_mtime = full_path.stat().st_mtime
+            file_mtime = file_info["modified_time"]
 
             if file_mtime < cutoff_time:
                 # Delete old file
-                file_size_mb = full_path.stat().st_size / (1024 * 1024)
-                full_path.unlink()
+                file_size_mb = file_info["size_bytes"] / (1024 * 1024)
+                local_path.unlink()
                 deleted_files.append(
                     {
-                        "filename": file_info["filename"],
+                        "filename": file_info["file_name"],
                         "size_mb": file_size_mb,
                         "age_days": (datetime.now().timestamp() - file_mtime) / 86400,
                     }
