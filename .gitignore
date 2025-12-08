@@ -18,7 +18,7 @@ model_training/models/*
 
 # Test data
 data_pipeline/data/*
-zeek/zeek_logs/*
+zeek/zeek_log_dump/*
 zeek/test_pcaps/*
 
 ## Infra

@@ -9,8 +9,8 @@ Core features:
 - DuckDB integration
 """
 
-from sqlutils.core import SQL
-from sqlutils.substitute import is_safe_identifier, substitute_identifiers
+from .core import SQL
+from .substitute import is_safe_identifier, substitute_identifiers
 
 __version__ = "0.1.0"
 

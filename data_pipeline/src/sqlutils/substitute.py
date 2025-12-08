@@ -1,3 +1,51 @@
+"""
+Safe SQL identifier substitution utilities.
+
+This module provides utilities for safely substituting table names, column names,
+and other SQL identifiers into query templates. Unlike parameter binding (which
+handles values), this module handles structural parts of queries that cannot be
+parameterized.
+
+Security:
+    - Validates identifiers match safe patterns (alphanumeric + underscore + dot)
+    - Optional whitelist enforcement for production environments
+    - Prevents SQL injection through identifier validation
+    - Uses string.Template for ${var} substitution syntax
+
+Warning:
+    Identifier substitution is inherently riskier than parameter binding. Only use
+    this for trusted identifiers (table names, column names) that cannot be bound
+    as parameters. Never substitute user input directly without validation.
+
+Example:
+    Dynamic table selection:
+        >>> sql = "SELECT * FROM ${schema}.${table} WHERE id = :user_id"
+        >>> safe_sql = substitute_identifiers(
+        ...     sql,
+        ...     {"schema": "public", "table": "users"}
+        ... )
+        >>> # Result: "SELECT * FROM public.users WHERE id = :user_id"
+
+    With whitelist for production:
+        >>> allowed_tables = {"users", "orders", "products"}
+        >>> substitute_identifiers(
+        ...     "SELECT * FROM ${table}",
+        ...     {"table": "users"},
+        ...     whitelist=allowed_tables
+        ... )
+
+    Multi-column dynamic queries:
+        >>> sql = "SELECT ${cols} FROM users ORDER BY ${order_by}"
+        >>> substitute_identifiers(
+        ...     sql,
+        ...     {"cols": "id, name, email", "order_by": "created_at"}
+        ... )
+
+Functions:
+    is_safe_identifier: Validate if a string is a safe SQL identifier.
+    substitute_identifiers: Substitute ${var} placeholders with validated identifiers.
+"""
+
 import re
 from string import Template
 
