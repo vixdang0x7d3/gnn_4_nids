@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.17.4"
+__generated_with = "0.18.0"
 app = marimo.App(width="medium")
 
 
@@ -14,21 +14,20 @@ def _():
     import torch
 
     import duckdb
-
     return duckdb, mo, os, sys, torch
 
 
 @app.cell
 def _(sys):
-    sys.path
+    cwd = "/home/v/works/gnn_4_nids/model_training"
+    if cwd not in sys.path:
+        sys.path.insert(0, "/home/v/works/gnn_4_nids/model_training")
     return
 
 
 @app.cell
 def _(sys):
-    cwd = "/home/v/works/gnn_4_nids"
-    if cwd not in sys.path:
-        sys.path.append("/home/v/works/gnn_4_nids")
+    sys.path
     return
 
 
@@ -39,7 +38,6 @@ def _():
 
     from graph_building import minmax_scale, groupwise_smote
     from graph_building import GraphGCN
-
     return (
         EDGE_ATTRIBUTES,
         FEATURE_ATTRIBUTES,
@@ -162,11 +160,10 @@ def _(mo, transformed_table):
 def _(EDGE_ATTRIBUTES, FEATURE_ATTRIBUTES, GraphGCN, transformed_table):
     inp_graph = GraphGCN(
         transformed_table,
-        FEATURE_ATTRIBUTES,
-        EDGE_ATTRIBUTES,
-        "multiclass_label",
-        "index",
-        2,
+        node_attrs=FEATURE_ATTRIBUTES,
+        edge_attrs=EDGE_ATTRIBUTES,
+        label="multiclass_label",
+        n_neighbors=2,
     )
 
     ptg = inp_graph.build(include_labels=True)
@@ -178,7 +175,6 @@ def _():
     import matplotlib.pyplot as plt
     import seaborn as sns
     import numpy as np
-
     return np, plt, sns
 
 
@@ -280,7 +276,6 @@ def _():
     from sklearn.manifold import TSNE
 
     import networkx as nx
-
     return PCA, TSNE, nx
 
 

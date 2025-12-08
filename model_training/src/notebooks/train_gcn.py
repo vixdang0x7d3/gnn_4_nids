@@ -6,40 +6,35 @@ app = marimo.App(width="medium")
 
 @app.cell
 def _():
-    import marimo as mo
+    import pickle
     import sys
     import os
 
-    import os.path as osp
-    import pickle
-
     from pathlib import Path
 
-    import torch
-    import torch.nn as nn
-    from torch.optim import Adadelta
-
-    from torch_geometric.loader import RandomNodeLoader
 
     import duckdb
-    import numpy as np
-
+    import marimo as mo
     import matplotlib.pyplot as plt
-    import seaborn as sns
-
-    from sklearn.metrics import roc_curve, auc
-    from sklearn.metrics import precision_recall_curve, average_precision_score
-
-    from sklearn.utils import class_weight
-
-    from sklearn.metrics import accuracy_score
-    from sklearn.metrics import recall_score
-    from sklearn.metrics import classification_report
-    from sklearn.metrics import balanced_accuracy_score
-    from sklearn.metrics import confusion_matrix
-
     import mlflow
     import mlflow.pytorch
+    import numpy as np
+    import seaborn as sns
+    import torch
+    import torch.nn as nn
+    from sklearn.metrics import (
+        accuracy_score,
+        auc,
+        average_precision_score,
+        balanced_accuracy_score,
+        classification_report,
+        confusion_matrix,
+        precision_recall_curve,
+        roc_curve,
+    )
+    from sklearn.utils import class_weight
+    from torch.optim import Adadelta
+    from torch_geometric.loader import RandomNodeLoader
     return (
         Adadelta,
         Path,
@@ -56,7 +51,7 @@ def _():
         mo,
         nn,
         np,
-        osp,
+        os,
         pickle,
         plt,
         precision_recall_curve,
@@ -70,7 +65,6 @@ def _():
 @app.cell
 def _(Path, sys):
     project_root = Path(__file__).resolve().parent.parent.parent
-    project_root
 
     if str(project_root) not in sys.path:
         sys.path.insert(0, str(project_root))
@@ -78,19 +72,18 @@ def _(Path, sys):
 
 
 @app.cell
-def _(sys):
-    print(sys.path)
-    return
-
-
-@app.cell
 def _():
-    from src.gnn.nb15_gcn import NB15_GCN
-    from src.gnn.helpers import train, predict
-    from src.gnn.const import FEATURE_ATTRIBUTES, EDGE_ATTRIBUTES, BINARY_LABEL, MULTICLASS_LABEL
-
     from graph_building.graph_gcn import GraphGCN
     from graph_building.transform import groupwise_smote, minmax_scale
+
+    from src.gnn.const import (
+        BINARY_LABEL,
+        EDGE_ATTRIBUTES,
+        FEATURE_ATTRIBUTES,
+        MULTICLASS_LABEL,
+    )
+    from src.gnn.helpers import predict, train
+    from src.gnn.nb15_gcn import NB15_GCN
     return (
         BINARY_LABEL,
         EDGE_ATTRIBUTES,
@@ -100,6 +93,7 @@ def _():
         NB15_GCN,
         groupwise_smote,
         minmax_scale,
+        predict,
         train,
     )
 
@@ -107,42 +101,52 @@ def _():
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ### Define settings
+    # Setup training
     """)
     return
 
 
 @app.cell
-def _(duckdb, osp):
+def _(Path, duckdb, os):
+    # Whether to loads saved weights when model file exists
+    load_saved = True
+
+    # MLflow envars
+    os.environ["MLFLOW_S3_ENDPOINT_URL"] = "http://localhost:9000"
+    os.environ['AWS_ACCESS_KEY_ID'] = 'admin'
+    os.environ['AWS_SECRET_ACCESS_KEY'] = 'minioadmin123'
+
+
+
     conn = duckdb.connect()
 
     # QUERY TEMPLATE
     # Load parquet files
     LOAD_SQL = """
     SELECT
-      ROW_NUMBER() OVER () as index, 
+      ROW_NUMBER() OVER () as index,
       {feature_cols},
       {edge_cols},
       {label},
     FROM (
       SELECT * FROM '{parquet_path}'
-      ORDER BY stime
+      ORDER BY {edge_cols}, stime
     )
     """
 
-    # --- MLFLOW CONFIGURATIONS---
+    # --- TRAINING - MLFLOW CONFIGURATIONS---
     params = {
-        "dataset_path": "data/NB15_preprocessed",
-        "artifacts_path": "models/",
         # Data Config
-        "binary_mode": True,
+        "binary_mode": False,
         "use_smote": True,
-        "smote_min_samples": 10,
+        "smote_min_samples": 100,
         "smote_k_neighbors": 5,
         "graph_n_neighbors": 2,
+
         # Loader Config
         "num_parts": 256,
         "shuffle": True,
+
         # Model Config
         "n_features": 14,
         "n_convs": 64,
@@ -150,11 +154,13 @@ def _(duckdb, osp):
         "alpha": 0.5,
         "theta": 0.7,
         "dropout": 0.5,
-        "epochs": 12,
-        "optimizer": "Adadelta"
+
+        # Training Config
+        "epochs": 1,
+        "optimizer": "Adadelta",
     }
-    dataset_path = params["dataset_path"]
-    artifacts_path = params["artifacts_path"]
+    dataset_path = Path("data") / "NB15_preprocessed" 
+    artifacts_path = Path("artifacts")
 
     BINARY = params["binary_mode"]
     USE_SMOTE = params["use_smote"]
@@ -173,27 +179,27 @@ def _(duckdb, osp):
     DROPOUT = params["dropout"]
     EPOCHS = params["epochs"]
 
-    raw_path = osp.join(dataset_path, "raw")
-    graph_path = osp.join(dataset_path, "graph")
+    raw_path = Path(dataset_path) /  "raw"
+    graph_path = Path(dataset_path) / "graph"
 
-    trainset_path = osp.join(raw_path, "train.parquet")
-    testset_path = osp.join(raw_path, "test.parquet")
-    valset_path  = osp.join(raw_path, "val.parquet")
+    trainset_path = Path(raw_path) / "train.parquet"
+    testset_path = Path(raw_path) / "test.parquet"
+    valset_path = Path(raw_path) / "val.parquet"
 
     # Named Experiment for MLflow
     EXPERIMENT_NAME = "GNN_NIDS_UNSW_NB15"
 
-    # Artifact save paths 
+    # MLflow run name and model name
     model_name = (
-        "gcn_nb15" + 
-        f"_{"bin" if BINARY else "multi"}" + 
-        f"_{'smotek' + str(SMOTE_K_NEIGHBORS) + 'm' + str(SMOTE_MIN_SAMPLES) if (USE_SMOTE and not BINARY) else 'no_smote'}" + 
-        f"_n{GRAPH_N_NEIGHBORS}" + 
-        f"_conv{N_CONVS}" +
-        f"_hidd{N_HIDDEN}"
+        "gcn_nb15"
+        + f"_{'bin' if BINARY else 'multi'}"
+        + f"_{'smotek' + str(SMOTE_K_NEIGHBORS) + 'm' + str(SMOTE_MIN_SAMPLES) if (USE_SMOTE and not BINARY) else 'no_smote'}"
+        + f"_n{GRAPH_N_NEIGHBORS}"
+        + f"_conv{N_CONVS}"
+        + f"_hidd{N_HIDDEN}"
     )
 
-    model_save_path = osp.join(artifacts_path, model_name)
+    model_save_path = Path(artifacts_path) / f"{model_name}.h5"
     return (
         ALPHA,
         BINARY,
@@ -205,12 +211,15 @@ def _(duckdb, osp):
         N_CONVS,
         N_FEATURES,
         N_HIDDEN,
+        SHUFFLE,
         SMOTE_K_NEIGHBORS,
         SMOTE_MIN_SAMPLES,
         THETA,
         USE_SMOTE,
         artifacts_path,
         conn,
+        graph_path,
+        load_saved,
         model_name,
         model_save_path,
         params,
@@ -238,30 +247,30 @@ def _(
         feature_cols=", ".join(FEATURE_ATTRIBUTES),
         edge_cols=", ".join(EDGE_ATTRIBUTES),
         label=BINARY_LABEL if BINARY else MULTICLASS_LABEL,
-        parquet_path=trainset_path
+        parquet_path=str(trainset_path),
     )
     train_data = conn.sql(load_train_sql)
     load_val_query = LOAD_SQL.format(
         feature_cols=", ".join(FEATURE_ATTRIBUTES),
         edge_cols=", ".join(EDGE_ATTRIBUTES),
         label=BINARY_LABEL if BINARY else MULTICLASS_LABEL,
-        parquet_path=valset_path
+        parquet_path=str(valset_path),
     )
     val_data = conn.sql(load_val_query)
     load_test_query = LOAD_SQL.format(
         feature_cols=", ".join(FEATURE_ATTRIBUTES),
         edge_cols=", ".join(EDGE_ATTRIBUTES),
         label=BINARY_LABEL if BINARY else MULTICLASS_LABEL,
-        parquet_path=testset_path
+        parquet_path=str(testset_path),
     )
     test_data = conn.sql(load_test_query)
     return test_data, train_data, val_data
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ### Apply MinMax scaling and SMOTE for training set
+    ## Apply MinMax scaling and SMOTE for training set
     """)
     return
 
@@ -277,28 +286,27 @@ def _(
     artifacts_path,
     groupwise_smote,
     minmax_scale,
-    osp,
     pickle,
     test_data,
     train_data,
     val_data,
 ):
-    # apply transformations 
+    # apply transformations
     train_arrow = train_data.arrow().read_all()
     train_arrow, fitted_mm_scaler = minmax_scale(train_arrow, FEATURE_ATTRIBUTES)
 
     if not BINARY and USE_SMOTE:
         train_arrow = groupwise_smote(
-            table=train_arrow, 
-            feature_attrs=FEATURE_ATTRIBUTES, 
-            group_attrs=EDGE_ATTRIBUTES, 
+            table=train_arrow,
+            feature_attrs=FEATURE_ATTRIBUTES,
+            group_attrs=EDGE_ATTRIBUTES,
             min_samples=SMOTE_MIN_SAMPLES,
-            k_neighbors=SMOTE_K_NEIGHBORS
+            k_neighbors=SMOTE_K_NEIGHBORS,
         )
 
     # using scaler fitted with statistics on train set
     # to avoid data leakage
-    scaler_save_path = osp.join(artifacts_path, "fitted_mm_scaler.pkl")
+    scaler_save_path = artifacts_path / "fitted_mm_scaler.pkl"
     with open(scaler_save_path, "wb") as f:
         pickle.dump(fitted_mm_scaler, f)
 
@@ -310,10 +318,10 @@ def _(
     return train_arrow, val_arrow
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ### Build input graphs
+    ## Build input graphs
     """)
     return
 
@@ -329,54 +337,73 @@ def _(
     MULTICLASS_LABEL,
     NUM_PARTS,
     RandomNodeLoader,
+    SHUFFLE,
+    graph_path,
+    torch,
     train_arrow,
     val_arrow,
 ):
-    train_graph = GraphGCN(
-        table=train_arrow, 
-        node_attrs=FEATURE_ATTRIBUTES, 
-        edge_attrs=EDGE_ATTRIBUTES, 
-        label=BINARY_LABEL if BINARY else MULTICLASS_LABEL,
-        n_neighbors=GRAPH_N_NEIGHBORS,
-    ).build(include_labels=True)
+    if False:# any(graph_path.iterdir()):
+        print("Pre-built graphs exist, loading...")
+        train_graph = torch.load(graph_path / "train.pt", weights_only=False)
+        test_graph = torch.load(graph_path / "test.pt", weights_only=False)
+        val_graph = torch.load(graph_path / "val.pt", weights_only=False)
+    else:
+        print("No pre-built graph, building and saving...")
 
 
-    val_graph = GraphGCN(
-        table=val_arrow, 
-        node_attrs=FEATURE_ATTRIBUTES, 
-        edge_attrs=EDGE_ATTRIBUTES, 
-        label=BINARY_LABEL if BINARY else MULTICLASS_LABEL,
-        n_neighbors=GRAPH_N_NEIGHBORS,
-    ).build(include_labels=True)
+        train_graph = GraphGCN(
+            table=train_arrow,
+            node_attrs=FEATURE_ATTRIBUTES,
+            edge_attrs=EDGE_ATTRIBUTES,
+            label=BINARY_LABEL if BINARY else MULTICLASS_LABEL,
+            n_neighbors=GRAPH_N_NEIGHBORS,
+        ).build(include_labels=True)
 
-    test_graph = GraphGCN(
-        table=val_arrow, 
-        node_attrs=FEATURE_ATTRIBUTES, 
-        edge_attrs=EDGE_ATTRIBUTES, 
-        label=BINARY_LABEL if BINARY else MULTICLASS_LABEL,
-        n_neighbors=GRAPH_N_NEIGHBORS,
-    ).build(include_labels=True)
+        val_graph = GraphGCN(
+            table=val_arrow,
+            node_attrs=FEATURE_ATTRIBUTES,
+            edge_attrs=EDGE_ATTRIBUTES,
+            label=BINARY_LABEL if BINARY else MULTICLASS_LABEL,
+            n_neighbors=GRAPH_N_NEIGHBORS,
+        ).build(include_labels=True)
 
-    train_loader = RandomNodeLoader(data=train_graph, num_parts=NUM_PARTS, shuffle=True)
-    val_loader = RandomNodeLoader(data=val_graph, num_parts=NUM_PARTS, shuffle=False)
-    test_loader = RandomNodeLoader(data=test_graph, num_parts=NUM_PARTS, shuffle=False)
+        test_graph = GraphGCN(
+            table=val_arrow,
+            node_attrs=FEATURE_ATTRIBUTES,
+            edge_attrs=EDGE_ATTRIBUTES,
+            label=BINARY_LABEL if BINARY else MULTICLASS_LABEL,
+            n_neighbors=GRAPH_N_NEIGHBORS,
+        ).build(include_labels=True)
+
+        torch.save(train_graph, graph_path / "train.pt")
+        torch.save(test_graph, graph_path / "test.pt")
+        torch.save(val_graph, graph_path / "val.pt")
+
+    train_loader = RandomNodeLoader(
+        data=train_graph, num_parts=NUM_PARTS, shuffle=SHUFFLE
+    )
+    val_loader = RandomNodeLoader(data=val_graph, num_parts=NUM_PARTS, shuffle=SHUFFLE)
+    test_loader = RandomNodeLoader(
+        data=test_graph, num_parts=NUM_PARTS, shuffle=SHUFFLE
+    )
     return test_loader, train_graph, train_loader, val_graph, val_loader
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ### Define GCN model
+    ## Define GCN model
     """)
     return
 
 
 @app.cell
 def _(ALPHA, BINARY, DROPOUT, NB15_GCN, N_CONVS, N_FEATURES, N_HIDDEN, THETA):
-    # Define GCN model 
+    # Define GCN model
     model = NB15_GCN(
         n_features=N_FEATURES,
-        n_classes= 2 if BINARY else 10, # binary
+        n_classes=2 if BINARY else 10,  # binary
         n_convs=N_CONVS,
         n_hidden=N_HIDDEN,
         alpha=ALPHA,
@@ -387,9 +414,15 @@ def _(ALPHA, BINARY, DROPOUT, NB15_GCN, N_CONVS, N_FEATURES, N_HIDDEN, THETA):
 
 
 @app.cell
+def _(model):
+    model
+    return
+
+
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ### Configure class weights, optimizer and loss function
+    ## Configure class weights, optimizer and loss function
     """)
     return
 
@@ -397,28 +430,23 @@ def _(mo):
 @app.cell
 def _(Adadelta, class_weight, model, nn, np, torch, train_graph, val_graph):
     # Configure device, optimizer and loss function
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
     y = train_graph.y.numpy()
     class_weights = class_weight.compute_class_weight(
-        'balanced', 
-        classes=np.unique(y), 
-        y=y
+        "balanced", classes=np.unique(y), y=y
     )
     class_weights = torch.tensor(class_weights, dtype=torch.float)
     loss_fn = nn.CrossEntropyLoss(weight=class_weights.to(device))
 
     y_val = val_graph.y.numpy()
     class_weights_val = class_weight.compute_class_weight(
-        'balanced',
+        "balanced",
         classes=np.unique(y_val),
         y=y_val,
     )
-    class_weights_val = torch.tensor(
-        class_weights_val, 
-        dtype=torch.float
-    )
+    class_weights_val = torch.tensor(class_weights_val, dtype=torch.float)
     loss_fn_val = nn.CrossEntropyLoss(weight=class_weights.to(device))
 
     optimizer = Adadelta(model.parameters())
@@ -428,7 +456,7 @@ def _(Adadelta, class_weight, model, nn, np, torch, train_graph, val_graph):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ### Train model
+    # Train models
     """)
     return
 
@@ -438,6 +466,7 @@ def _(
     EXPERIMENT_NAME,
     artifacts_path,
     device,
+    load_saved,
     loss_fn,
     loss_fn_val,
     mlflow,
@@ -445,87 +474,76 @@ def _(
     model_name,
     model_save_path,
     optimizer,
-    osp,
     params,
-    plt,
     torch,
     train,
     train_loader,
     val_loader,
 ):
-    #Setup Experiment 
-    mlflow.set_experiment(EXPERIMENT_NAME)
-    print(f"Starting Run: {model_name}")
+    mlflow.set_tracking_uri("http://localhost:5000")
 
-    print(f"Tracking URI: {mlflow.get_tracking_uri()}")
-    #Start Run 
-    with mlflow.start_run(run_name=model_name) as run:
-        # Log Hyperparameters
-        mlflow.log_params(params)
-        model_file = model_save_path + ".h5"
-        history = None
-        # Logic Train 
-        if osp.exists(model_file):
-            print(f"Loading model from {model_file}...")
-            # Load old model 
-            model.load_state_dict(
-                torch.load(model_file, map_location=device, weights_only=False)
-            )
-            mlflow.pytorch.log_model(model, "model")
-        else:
-            history = train(
+
+    # Load existing model
+    if model_save_path.exists() and load_saved:
+        print(f"Loading model from {model_save_path}...")
+        model.load_state_dict(
+            torch.load(model_save_path, map_location=device, weights_only=False)
+        )
+
+    # Train new model
+    else:
+        # Setup Experiment
+        mlflow.set_experiment(EXPERIMENT_NAME)
+
+        print(f"Experiment: {EXPERIMENT_NAME}")
+        print(f"Starting Run: {model_name}")
+        print(f"Tracking URI: {mlflow.get_tracking_uri()}")
+        print(f"")
+
+        # Start Run
+        with mlflow.start_run(run_name=model_name) as run:
+            print(f"Run ID: {run.info.run_id}")
+            print("")
+
+            mlflow.log_params(params)
+
+            train(
                 model=model,
                 loss_fn=loss_fn,
                 train_dataloader=train_loader,
                 optimizer=optimizer,
                 device=device,
-                model_path=artifacts_path, 
+                model_path=artifacts_path,
                 model_name=model_name,
                 eval=True,
                 loss_fn_val=loss_fn_val,
                 val_dataloader=val_loader,
-                epochs=params["epochs"], 
+                epochs=params["epochs"],
             )
-            mlflow.pytorch.log_model(model, "model")
-            # Log Scaler (Dùng để chuẩn hóa dữ liệu mới y hệt lúc train)
-            scaler_path = osp.join(artifacts_path, "fitted_mm_scaler.pkl")
-            if osp.exists(scaler_path):
+
+            mlflow.pytorch.log_model(model, name=model_name)
+
+            scaler_path = artifacts_path / "fitted_mm_scaler.pkl"
+            if scaler_path.exists():
                 mlflow.log_artifact(scaler_path, artifact_path="preprocessor")
                 print("Logged scaler artifact to MLflow.")
+
         print(f"Run ID: {run.info.run_id} completed.")
-        if history:
-            fig = plt.figure(figsize=(12, 5))
-            plt.subplot(1, 2, 1)
-            plt.plot(history['train_epoch_loss'], label='Train Loss', marker='o')
-            if history['val_loss']:
-                plt.plot(history['val_loss'], label='Val Loss', marker='o')
-            plt.title('Training vs Validation Loss')
-            plt.xlabel('Epoch'); plt.ylabel('Loss'); plt.legend(); plt.grid(True)
-            if history['val_acc']:
-                plt.subplot(1, 2, 2)
-                plt.plot(history['val_acc'], label='Val Accuracy', color='orange', marker='o')
-                plt.title('Validation Accuracy')
-                plt.xlabel('Epoch'); plt.ylabel('Accuracy'); plt.legend(); plt.grid(True)
-            plt.tight_layout()
-            chart_path = "training_history.png"
-            plt.savefig(chart_path)
-            mlflow.log_artifact(chart_path)
-            plt.show()
     return
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ### Basic evaluation
+    # Models Evaluation
     """)
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ### Run Inference on Test Set
+    ## Run Inference on Test Set
     """)
     return
 
@@ -533,16 +551,16 @@ def _(mo):
 @app.cell
 def _(BINARY):
     class_names = [
-        "Normal",           # 0
-        "Worms",            # 1
-        "Backdoors",        # 2
-        "Shellcode",        # 3
-        "Analysis",         # 4
-        "Reconnaissance",   # 5
-        "DoS",              # 6
-        "Fuzzers",          # 7
-        "Exploits",         # 8
-        "Generic"           # 9
+        "Normal",  # 0
+        "Worms",  # 1
+        "Backdoors",  # 2
+        "Shellcode",  # 3
+        "Analysis",  # 4
+        "Reconnaissance",  # 5
+        "DoS",  # 6
+        "Fuzzers",  # 7
+        "Exploits",  # 8
+        "Generic",  # 9
     ]
     if BINARY:
         class_names = ["Normal", "Attack"]
@@ -550,54 +568,60 @@ def _(BINARY):
 
 
 @app.cell
-def _(BINARY, device, model, test_loader, torch):
-    # Chuyển model sang chế độ eval
-    model.eval()
-    y_true = []
-    y_pred = []
-    y_probs = [] 
-    print("Running inference...")
-    with torch.no_grad():
-        for batch in test_loader:
-            batch = batch.to(device)
-            out = model(batch.x, batch.edge_index) 
-            # ------------------------------------------
-            # Tính xác suất
-            probs = torch.softmax(out, dim=1)
-            # Lấy nhãn dự đoán
-            preds = out.argmax(dim=1)
-            y_true.extend(batch.y.cpu().numpy())
-            y_pred.extend(preds.cpu().numpy())
-            # Nếu là Binary, lưu xác suất lớp 1
-            if BINARY:
-                y_probs.extend(probs[:, 1].cpu().numpy())
-    print("Inference complete.")
+def _(device, model, predict, test_loader):
+    y_true, y_pred, probs = predict(model, test_loader, device)
+    y_probs = probs[:,1]
+    y_probs
     return y_pred, y_probs, y_true
 
 
 @app.cell
+def _(BINARY, device, model, test_loader, torch):
+    def _():
+        # Chuyển model sang chế độ eval
+        model.eval()
+        y_true = []
+        y_pred = []
+        y_probs = []
+        print("Running inference...")
+        with torch.no_grad():
+            for batch in test_loader:
+                batch = batch.to(device)
+                out = model(batch.x, batch.edge_index)
+                # ------------------------------------------
+                # Tính xác suất
+                probs = torch.softmax(out, dim=1)
+                # Lấy nhãn dự đoán
+                preds = out.argmax(dim=1)
+                y_true.extend(batch.y.cpu().numpy())
+                y_pred.extend(preds.cpu().numpy())
+                # Nếu là Binary, lưu xác suất lớp 1
+                if BINARY:
+                    y_probs.extend(probs[:, 1].cpu().numpy())
+        print("Inference complete.")
+
+    _()
+    return
+
+
+@app.cell
 def _(accuracy_score, balanced_accuracy_score, y_pred, y_true):
-    print(f'Accuracy on test: {accuracy_score(y_true, y_pred):.4f}')
-    print(f'Balanced accuracy: {balanced_accuracy_score(y_true, y_pred):.4f}')
+    print(f"Accuracy on test: {accuracy_score(y_true, y_pred):.4f}")
+    print(f"Balanced accuracy: {balanced_accuracy_score(y_true, y_pred):.4f}")
     print("-" * 30)
     return
 
 
 @app.cell
 def _(classification_report, y_pred, y_true):
-    print(classification_report(
-        y_true, 
-        y_pred, 
-        digits=4,
-        zero_division=0
-    ))
+    print(classification_report(y_true, y_pred, digits=4, zero_division=0))
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ### Visualize Results (ROC-AUC / Confusion Matrix)
+    ## Visualize Results (ROC-AUC / Confusion Matrix)
     """)
     return
 
@@ -618,49 +642,60 @@ def _(
     y_probs,
     y_true,
 ):
-    plt.figure(figsize=(12, 8))
     if BINARY:
         # Existing ROC curve code
         fpr, tpr, _ = roc_curve(y_true, y_probs)
         roc_auc = auc(fpr, tpr)
-    
+
         # PR curve
         precision, recall, _ = precision_recall_curve(y_true, y_probs)
         pr_auc = average_precision_score(y_true, y_probs)
-    
+
         # Plot both
         _fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
-    
+
         # ROC curve
-        ax1.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC (AUC = {roc_auc:.4f})')
-        ax1.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+        ax1.plot(fpr, tpr, color="darkorange", lw=2, label=f"ROC (AUC = {roc_auc:.4f})")
+        ax1.plot([0, 1], [0, 1], color="navy", lw=2, linestyle="--")
         ax1.set_xlim([0.0, 1.0])
         ax1.set_ylim([0.0, 1.05])
-        ax1.set_xlabel('False Positive Rate')
-        ax1.set_ylabel('True Positive Rate')
-        ax1.set_title('ROC Curve')
+        ax1.set_xlabel("False Positive Rate")
+        ax1.set_ylabel("True Positive Rate")
+        ax1.set_title("ROC Curve")
         ax1.legend(loc="lower right")
         ax1.grid(True, alpha=0.3)
-    
+
         # PR curve
-        ax2.plot(recall, precision, color='darkorange', lw=2, label=f'PR (AUC = {pr_auc:.4f})')
-        ax2.axhline(y=np.mean(y_true), color='navy', lw=2, linestyle='--', label=f'Baseline ({np.mean(y_true):.3f})')
+        ax2.plot(
+            recall,
+            precision,
+            color="darkorange",
+            lw=2,
+            label=f"PR (AUC = {pr_auc:.4f})",
+        )
+        ax2.axhline(
+            y=np.mean(y_true),
+            color="navy",
+            lw=2,
+            linestyle="--",
+            label=f"Baseline ({np.mean(y_true):.3f})",
+        )
         ax2.set_xlim([0.0, 1.0])
         ax2.set_ylim([0.0, 1.05])
-        ax2.set_xlabel('Recall')
-        ax2.set_ylabel('Precision')
-        ax2.set_title('Precision-Recall Curve')
+        ax2.set_xlabel("Recall")
+        ax2.set_ylabel("Precision")
+        ax2.set_title("Precision-Recall Curve")
         ax2.legend(loc="lower left")
         ax2.grid(True, alpha=0.3)
-    
+
         plt.tight_layout()
-    
-        #print(f"ROC-AUC: {roc_auc:.4f}")
-        #print(f"PR-AUC:  {pr_auc:.4f}")
-    
+
+        # print(f"ROC-AUC: {roc_auc:.4f}")
+        # print(f"PR-AUC:  {pr_auc:.4f}")
+
     else:
         cm = confusion_matrix(y_true, y_pred)
-        cm_norm = cm.astype('float') / (cm.sum(axis=1)[:, np.newaxis] + 1e-7)
+        cm_norm = cm.astype("float") / (cm.sum(axis=1)[:, np.newaxis] + 1e-7)
 
         # Tạo text hiển thị trong ô (VD: "85%\n(102)")
         annot = np.empty_like(cm).astype(object)
@@ -669,21 +704,27 @@ def _(
             for j in range(cols):
                 if cm[i, j] > 0:
                     if i == j:
-                         annot[i, j] = f"{cm_norm[i, j]*100:.1f}%\n({cm[i, j]})"
-                    else:   
-                         annot[i, j] = f"{cm[i, j]}"
+                        annot[i, j] = f"{cm_norm[i, j] * 100:.1f}%\n({cm[i, j]})"
+                    else:
+                        annot[i, j] = f"{cm[i, j]}"
                 else:
                     annot[i, j] = ""
 
         sns.heatmap(
-            cm_norm, annot=annot, fmt='', cmap='YlGnBu', 
-            cbar=True, linewidths=0.5, linecolor='lightgray',
-            xticklabels=class_names, yticklabels=class_names
+            cm_norm,
+            annot=annot,
+            fmt="",
+            cmap="YlGnBu",
+            cbar=True,
+            linewidths=0.5,
+            linecolor="lightgray",
+            xticklabels=class_names,
+            yticklabels=class_names,
         )
-        plt.title('Confusion Matrix (Normalized by Recall)', fontsize=14)
-        plt.xlabel('Predicted Label')
-        plt.ylabel('True Label')
-        plt.xticks(rotation=45, ha='right')
+        plt.title("Confusion Matrix (Normalized by Recall)", fontsize=14)
+        plt.xlabel("Predicted Label")
+        plt.ylabel("True Label")
+        plt.xticks(rotation=45, ha="right")
         plt.yticks(rotation=0)
 
     plt.tight_layout()
