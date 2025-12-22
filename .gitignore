@@ -14,12 +14,16 @@ model_training/.venv
 
 # Data and model files
 model_training/data/*
-model_training/models/*
+model_training/artifacts/*
 
 # Test data
 pipelines/data/*
-zeek/zeek_log_dump/*
+zeek/dpi_impl/message_dump/*
+zeek/og_nb15_impl.bak/logs/*
 zeek/test_pcaps/*
+
+# DuckDB cache
+pipelines/.tmp/
 
 ## Infra
 infrastructure/.env

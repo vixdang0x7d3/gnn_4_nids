@@ -12,8 +12,8 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 mkdir -p "$SCRIPT_DIR/airflow/packages"
 rm -f "$SCRIPT_DIR/airflow/packages/*.whl"
 
-mkdir -p "$SCRIPT_DIR/pipeline/packages"
-rm -f "$SCRIPT_DIR/pipeline/packages/*.whl"
+mkdir -p "$SCRIPT_DIR/data_pipeline/packages"
+rm -f "$SCRIPT_DIR/data_pipeline/packages/*.whl"
 
 # Build graph_building (base dependency)
 echo "Building graph_building..."
@@ -23,10 +23,10 @@ echo "graph_building built"
 echo ""
 
 # Build data_pipeline (depends on graph_building)
-echo "Building data_pipeline..."
-cd "$ROOT_DIR/data_pipeline"
+echo "Building pipelines..."
+cd "$ROOT_DIR/pipelines"
 uv build --wheel --out-dir "$SCRIPT_DIR/airflow/packages"
-echo "data_pipeline built"
+echo "pipelines built"
 echo ""
 
 # Build model_training (depends on graph_building)
@@ -42,13 +42,13 @@ echo "Packages created:"
 ls -lh "$SCRIPT_DIR/airflow/packages/"*.whl
 echo ""
 
-# Copy data_pipeline wheel to pipeline directory
-echo "Copying wheels to streaming-pipeline..."
-cp "$SCRIPT_DIR/airflow/packages/graph_building-"*.whl "$SCRIPT_DIR/pipeline/packages/"
-cp "$SCRIPT_DIR/airflow/packages/data_pipeline-"*.whl "$SCRIPT_DIR/pipeline/packages/"
+# Copy pipelines wheel to pipeline directory
+echo "Copying wheels to data_pipeline..."
+cp "$SCRIPT_DIR/airflow/packages/graph_building-"*.whl "$SCRIPT_DIR/data_pipeline/packages/"
+cp "$SCRIPT_DIR/airflow/packages/pipelines-"*.whl "$SCRIPT_DIR/data_pipeline/packages/"
 
 echo "Packages are copied:"
-ls -lh "$SCRIPT_DIR/pipeline/packages/"*.whl
+ls -lh "$SCRIPT_DIR/data_pipeline/packages/"*.whl
 echo ""
 
 echo "Done!"

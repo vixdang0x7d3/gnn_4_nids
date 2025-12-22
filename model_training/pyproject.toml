@@ -6,13 +6,13 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "boto3>=1.41.5",
-    "duckdb==1.4.0",
+    "duckdb>=1.4.0",
     "gdown>=5.2.0",
     "graph-building",
     "imblearn>=0.0",
     "mlflow>=3.6.0",
     "pathlib==1.0.1",
-    "pyarrow==21.0.0",
+    "pyarrow>=22.0.0",
     "torch==2.8.0",
     "torch-geometric>=2.7.0",
 ]
