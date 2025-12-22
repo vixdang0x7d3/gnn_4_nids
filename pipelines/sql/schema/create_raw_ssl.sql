@@ -1,0 +1,26 @@
+-- ssl.log staging table
+CREATE TABLE IF NOT EXISTS raw_ssl (
+    ts DOUBLE,
+    uid VARCHAR,
+    id.orig_h VARCHAR,
+    id.orig_p BIGINT,
+    id.resp_h VARCHAR,
+    id.resp_p BIGINT,
+    version VARCHAR,
+    cipher VARCHAR,
+    curve VARCHAR,
+    server_name VARCHAR,
+    resumed BOOL,
+    next_protocol VARCHAR,
+    established BOOL,
+    last_alert VARCHAR,
+    cert_chain_fps VARCHAR[],
+    client_cert_chain_fps VARCHAR[],
+    subject VARCHAR,
+    issuer VARCHAR,
+    fingerprint VARCHAR,
+    validation_status VARCHAR,
+    ssl_history VARCHAR,
+    sni_matches_cert BOOL,
+    ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)

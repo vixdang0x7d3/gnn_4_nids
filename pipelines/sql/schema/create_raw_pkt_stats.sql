@@ -1,0 +1,27 @@
+-- pkt_stats.log staging table
+CREATE TABLE IF NOT EXISTS raw_pkt_stats (
+    ts DOUBLE,
+    uid VARCHAR,
+    id.orig_h VARCHAR,
+    id.orig_p BIGINT,
+    id.resp_h VARCHAR,
+    id.resp_p BIGINT,
+    proto VARCHAR,
+    service VARCHAR,
+    orig_bytes BIGINT,
+    resp_bytes BIGINT,
+    tcp_rtt DOUBLE,
+    tcp_flags_orig BIGINT,
+    tcp_flags_resp BIGINT,
+    tcp_win_max_orig BIGINT,
+    tcp_win_max_resp BIGINT,
+    retrans_orig_pkts BIGINT,
+    retrans_resp_pkts BIGINT,
+    orig_pkt_times DOUBLE[],
+    resp_pkt_times DOUBLE[],
+    orig_pkt_sizes BIGINT[],
+    resp_pkt_sizes BIGINT[],
+    orig_ttls BIGINT[],
+    resp_ttls BIGINT[],
+    ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)

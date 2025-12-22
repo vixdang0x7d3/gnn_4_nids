@@ -1,0 +1,174 @@
+import argparse
+import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+
+import duckdb
+
+from sqlutils import SQL
+
+from .archiver import DataArchiver
+from .loader import ZeekLoader
+from .transformer import FeatureTransformer
+
+# Configuration
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(threadName)s - %(levelname)s - %(message)s",
+)
+
+logger = logging.getLogger(__name__)
+
+
+class ZeekETLPipeline:
+    """Orchestrates the Zeek ETL pipeline."""
+
+    def __init__(
+        self,
+        db_path: str,
+        archive_path: str,
+        sql_dir: Path | str,
+        bootstrap_servers: str,
+        topic: str,
+        group_id: str = "zeek-consumer",
+        aggregation_interval_sec: int = 5,
+        archive_interval_sec: int = 21600,
+    ):
+        self.db_path = db_path
+        self.archive_path = archive_path
+        self.sql_dir = Path(sql_dir)
+        self.loader = ZeekLoader(db_path, sql_dir, bootstrap_servers, topic, group_id)
+        self.transformer = FeatureTransformer(
+            db_path, sql_dir, aggregation_interval_sec
+        )
+        self.archiver = DataArchiver(
+            db_path, archive_path, sql_dir, archive_interval_sec
+        )
+
+    def init_db(self):
+        """Initialize DuckDB schema."""
+        conn = duckdb.connect(self.db_path)
+        cursor = conn.cursor()
+
+        for sql_file in [
+            "create_raw_conn.sql",
+            "create_raw_unsw_extra.sql",
+            "create_og_nb15_features.sql",
+            "create_indices.sql",
+        ]:
+            sql = SQL.from_file(self.sql_dir / "schema" / sql_file)
+            cursor.execute(*sql.duck)
+
+        logger.info("Database schema initialized")
+        cursor.close()
+        conn.close()
+
+    def run(self, duration_seconds: int | None = None):
+        """Start all threads."""
+        logger.info("Starting Zeek ETL pipeline")
+
+        self.init_db()
+
+        with ThreadPoolExecutor(max_workers=3, thread_name_prefix="ETL") as executor:
+            futures = {
+                executor.submit(
+                    self.loader.consume_and_insert, duration_seconds
+                ): "Loader",
+                executor.submit(
+                    self.transformer.aggregate_features, duration_seconds
+                ): "Transformer",
+                executor.submit(
+                    self.archiver.archive_old_data, duration_seconds
+                ): "Archiver",
+            }
+
+            for future in as_completed(futures):
+                thread_name = futures[future]
+                try:
+                    future.result()
+                    logger.info(f"{thread_name} completed successfully")
+                except Exception as e:
+                    logger.critical(f"{thread_name} crashed: {e}", exc_info=True)
+                    # Cancel remaining tasks and raise
+                    for f in futures:
+                        f.cancel()
+                    raise
+
+        logger.info("Pipeline stopped")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Zeek Kafka to DuckDB streaming ETL pipeline",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument(
+        "--db-path",
+        type=str,
+        default="/data/features.db",
+        help="Path to DuckDB database file",
+    )
+    parser.add_argument(
+        "--archive-path",
+        type=str,
+        default="/data/archive",
+        help="Path to archive directory",
+    )
+    parser.add_argument(
+        "--sql-dir",
+        type=str,
+        default="/sql",
+        help="Path to SQL statements directory",
+    )
+    parser.add_argument(
+        "--bootstrap-servers",
+        type=str,
+        default="broker:29092",
+        help="Kafka bootstrap servers",
+    )
+    parser.add_argument(
+        "--topic", type=str, default="zeek.logs", help="Kafka topic to consume from"
+    )
+    parser.add_argument(
+        "--group-id", type=str, default="zeek-consumer", help="Kafka consumer group ID"
+    )
+    parser.add_argument(
+        "--aggregation-interval",
+        type=int,
+        default=3600,
+        help="Aggregation interval in seconds (default: 1 hour)",
+    )
+    parser.add_argument(
+        "--archive-interval",
+        type=int,
+        default=21600,
+        help="Archival interval in seconds (default: 6 hours)",
+    )
+    parser.add_argument(
+        "--duration",
+        type=int,
+        default=None,
+        help="Duration to run pipeline in seconds (None = run forever)",
+    )
+
+    args = parser.parse_args()
+
+    pipeline = ZeekETLPipeline(
+        db_path=args.db_path,
+        archive_path=args.archive_path,
+        sql_dir=args.sql_dir,
+        bootstrap_servers=args.bootstrap_servers,
+        topic=args.topic,
+        group_id=args.group_id,
+        aggregation_interval_sec=args.aggregation_interval,
+        archive_interval_sec=args.archive_interval,
+    )
+
+    try:
+        pipeline.run(duration_seconds=args.duration)
+    except KeyboardInterrupt:
+        logger.info("Pipeline interrupted by user")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,5 +1,0 @@
--- Batch insert for raw connection logs
--- Uses positional placeholders (?) for executemany()
-INSERT INTO raw_conn VALUES (
-    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP
-)

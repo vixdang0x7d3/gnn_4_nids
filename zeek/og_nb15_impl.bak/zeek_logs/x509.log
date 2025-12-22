@@ -1,0 +1,11 @@
+#separator \x09
+#set_separator	,
+#empty_field	(empty)
+#unset_field	-
+#path	x509
+#open	2025-12-06-07-13-21
+#fields	ts	fingerprint	certificate.version	certificate.serial	certificate.subject	certificate.issuer	certificate.not_valid_before	certificate.not_valid_after	certificate.key_alg	certificate.sig_alg	certificate.key_type	certificate.key_length	certificate.exponent	certificate.curve	san.dns	san.uri	san.email	san.ip	basic_constraints.ca	basic_constraints.path_len	host_cert	client_cert
+#types	time	string	count	string	string	string	time	time	string	string	string	count	string	string	vector[string]	vector[string]	vector[string]	vector[addr]	bool	count	bool	bool
+1765005201.784110	e7cc31b803fadfe9f28e470b52cb3789b09b1b0096127e8f3364886a1ba2bc29	3	058694B4809C11AE7FF6604AA5C837D05B42	CN=*.thinkpro.vn	CN=E7,O=Let's Encrypt,C=US	1758075854.000000	1765851853.000000	id-ecPublicKey	ecdsa-with-SHA384	ecdsa	256	-	prime256v1	*.thinkpro.vn,thinkpro.vn	-	-	-	F	-	T	F
+1765005201.784110	aeb1fd7410e83bc96f5da3c6a7c2c1bb836d1fa5cb86e708515890e428a8770b	3	AA75F1E62B8F0A220966D38BBFD4BAA1	CN=E7,O=Let's Encrypt,C=US	CN=ISRG Root X1,O=Internet Security Research Group,C=US	1710288000.000000	1804895999.000000	id-ecPublicKey	sha256WithRSAEncryption	ecdsa	384	-	secp384r1	-	-	-	-	T	0	F	F
+#close	2025-12-06-07-17-22

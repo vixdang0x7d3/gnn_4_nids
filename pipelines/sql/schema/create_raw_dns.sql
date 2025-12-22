@@ -1,0 +1,28 @@
+-- dns.log staging table
+CREATE TABLE IF NOT EXISTS raw_dns (
+    ts DOUBLE,
+    uid VARCHAR,
+    id.orig_h VARCHAR,
+    id.orig_p BIGINT,
+    id.resp_h VARCHAR,
+    id.resp_p BIGINT,
+    proto VARCHAR,
+    trans_id BIGINT,
+    rtt DOUBLE,
+    query VARCHAR,
+    qclass BIGINT,
+    qclass_name VARCHAR,
+    qtype BIGINT,
+    qtype_name VARCHAR,
+    rcode BIGINT,
+    rcode_name VARCHAR,
+    AA BOOL,
+    TC BOOL,
+    RD BOOL,
+    RA BOOL,
+    Z BIGINT,
+    answer VARCHAR[]
+    TTLs BIGINT[]
+    rejected BOOL,
+    ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)

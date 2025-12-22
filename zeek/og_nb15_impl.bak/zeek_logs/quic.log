@@ -1,0 +1,11 @@
+#separator \x09
+#set_separator	,
+#empty_field	(empty)
+#unset_field	-
+#path	quic
+#open	2025-12-06-07-19-46
+#fields	ts	uid	id.orig_h	id.orig_p	id.resp_h	id.resp_p	version	client_initial_dcid	client_scid	server_scid	server_name	client_protocol	history
+#types	time	string	addr	port	addr	port	string	string	string	string	string	string	string
+1765005526.573945	CRpBFq4Sgti4B8CIqj	192.168.1.6	55493	34.36.137.203	443	1	7f03133b6486f2a201f55dd676	d0c32b	ff03133b6486f2a2	ads.mozilla.org	h3	IIISiiiiishIH
+1765005635.851797	CcHRiP185ojcrcrS9	2402:800:6314:ef2b:f98a:2399:ea4b:37d6	37080	2404:6800:4003:c02::8b	443	1	ec0679ffc4f703a8	300fa9	ec0679ffc4f703a8	accounts.youtube.com	h3	IIISZiiiiishIH
+#close	2025-12-06-07-20-45
