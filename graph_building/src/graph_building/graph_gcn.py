@@ -70,20 +70,30 @@ class GraphGCN(GraphBase):
 
         # Convert to numpy for faster access
         node_ids = self.table.column(self.index).to_numpy()
-        proto = self.table.column("proto").to_numpy()
-        service = self.table.column("service").to_numpy()
-        state = self.table.column("state").to_numpy()
 
-        # Find group boundaries using vectorized operations
-        # A new group starts where any of the grouping columns changes
-        group_change = np.concatenate(
-            [
-                [True],  # First row always starts a group
-                (proto[1:] != proto[:-1])
-                | (service[1:] != service[:-1])
-                | (state[1:] != state[:-1]),
-            ]
-        )
+        # Dynamically get edge attribute columns
+        edge_columns = []
+        for attr in self.edge_attrs:
+            if attr in self.table.column_names:
+                edge_columns.append(self.table.column(attr).to_numpy())
+
+        if not edge_columns:
+            # No edge attributes, treat all nodes as one group
+            group_change = np.array([True] + [False] * (len(node_ids) - 1))
+        else:
+            # Find group boundaries using vectorized operations
+            # A new group starts where any of the grouping columns changes
+            change_conditions = [(edge_columns[0][1:] != edge_columns[0][:-1])]
+
+            for col_data in edge_columns[1:]:
+                change_conditions.append((col_data[1:] != col_data[:-1]))
+
+            # Combine all conditions with OR
+            combined_change = change_conditions[0]
+            for cond in change_conditions[1:]:
+                combined_change = combined_change | cond
+
+            group_change = np.concatenate([[True], combined_change])
 
         # Get indices where groups start
         group_starts = np.where(group_change)[0]

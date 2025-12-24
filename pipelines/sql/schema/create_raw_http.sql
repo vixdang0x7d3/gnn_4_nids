@@ -2,11 +2,11 @@
 CREATE TABLE IF NOT EXISTS raw_http (
     ts DOUBLE,
     uid VARCHAR,
-    id.orig_h VARCHAR,
-    id.orig_p BIGINT,
-    id.resp_h VARCHAR,
-    id.resp_p BIGINT,
-    trans_depth BIGINT
+    "id.orig_h" VARCHAR,
+    "id.orig_p" BIGINT,
+    "id.resp_h" VARCHAR,
+    "id.resp_p" BIGINT,
+    trans_depth BIGINT,
     method VARCHAR,
     host VARCHAR,
     uri VARCHAR,

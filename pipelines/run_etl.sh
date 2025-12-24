@@ -2,13 +2,15 @@
 
 set -xe
 
-uv run -m src.pipeline.etl \
+uv run python -m data_pipeline.etl \
     --db-path ./data/output/nids_data.duckdb \
     --archive-path ./data/output/archive \
-    --sql-dir ./src/sql \
-    --bootstrap-server localhost:9092 \
+    --sql-dir ./sql \
+    --bootstrap-servers localhost:9092 \
     --topic zeek.logs \
     --group-id zeek-consumer \
-    --aggregation-interval 30 \
-    --archive-interval 120 \
-
+    --aggregation-interval 5 \
+    --archive-age-hours 0.05 \
+    --retention-hours 0.5 \
+    --feature-set og \
+    "$@"

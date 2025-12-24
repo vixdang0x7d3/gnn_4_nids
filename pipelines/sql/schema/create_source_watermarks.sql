@@ -4,6 +4,6 @@
 CREATE TABLE IF NOT EXISTS source_watermarks (
     source VARCHAR PRIMARY KEY,
     max_event_ts DOUBLE,
-    max_ingestion_ts TIMESTAMP
+    max_ingestion_ts TIMESTAMP,
     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

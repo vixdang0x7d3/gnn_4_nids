@@ -42,10 +42,10 @@ echo "Packages created:"
 ls -lh "$SCRIPT_DIR/airflow/packages/"*.whl
 echo ""
 
-# Copy pipelines wheel to pipeline directory
+# Copy wheels to data_pipeline directory
 echo "Copying wheels to data_pipeline..."
 cp "$SCRIPT_DIR/airflow/packages/graph_building-"*.whl "$SCRIPT_DIR/data_pipeline/packages/"
-cp "$SCRIPT_DIR/airflow/packages/pipelines-"*.whl "$SCRIPT_DIR/data_pipeline/packages/"
+cp "$SCRIPT_DIR/airflow/packages/data_pipeline-"*.whl "$SCRIPT_DIR/data_pipeline/packages/"
 
 echo "Packages are copied:"
 ls -lh "$SCRIPT_DIR/data_pipeline/packages/"*.whl

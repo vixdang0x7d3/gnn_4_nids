@@ -2,10 +2,10 @@
 CREATE TABLE IF NOT EXISTS raw_dns (
     ts DOUBLE,
     uid VARCHAR,
-    id.orig_h VARCHAR,
-    id.orig_p BIGINT,
-    id.resp_h VARCHAR,
-    id.resp_p BIGINT,
+    "id.orig_h" VARCHAR,
+    "id.orig_p" BIGINT,
+    "id.resp_h" VARCHAR,
+    "id.resp_p" BIGINT,
     proto VARCHAR,
     trans_id BIGINT,
     rtt DOUBLE,
@@ -21,8 +21,8 @@ CREATE TABLE IF NOT EXISTS raw_dns (
     RD BOOL,
     RA BOOL,
     Z BIGINT,
-    answer VARCHAR[]
-    TTLs BIGINT[]
+    answer VARCHAR[],
+    TTLs BIGINT[],
     rejected BOOL,
     ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )

@@ -10,7 +10,7 @@ Security:
     - Validates identifiers match safe patterns (alphanumeric + underscore + dot)
     - Optional whitelist enforcement for production environments
     - Prevents SQL injection through identifier validation
-    - Uses string.Template for ${var} substitution syntax
+    - Integrates with SQL class from sqlutils.core
 
 Warning:
     Identifier substitution is inherently riskier than parameter binding. Only use
@@ -18,49 +18,75 @@ Warning:
     as parameters. Never substitute user input directly without validation.
 
 Example:
-    Dynamic table selection:
-        >>> sql = "SELECT * FROM ${schema}.${table} WHERE id = :user_id"
-        >>> safe_sql = substitute_identifiers(
-        ...     sql,
-        ...     {"schema": "public", "table": "users"}
-        ... )
-        >>> # Result: "SELECT * FROM public.users WHERE id = :user_id"
+    Using SQLTemplate class (recommended):
+        >>> from sqlutils import SQLTemplate
+        >>> template = SQLTemplate("SELECT * FROM ${schema}.${table} WHERE id = :user_id")
+        >>> sql = template.substitute(schema="public", table="users")
+        >>> bound = sql(user_id=123)
+        >>> query, params = bound.duck
 
-    With whitelist for production:
-        >>> allowed_tables = {"users", "orders", "products"}
-        >>> substitute_identifiers(
-        ...     "SELECT * FROM ${table}",
-        ...     {"table": "users"},
-        ...     whitelist=allowed_tables
-        ... )
+    Loading from file:
+        >>> template = SQLTemplate.from_file("queries/get_users.sql")
+        >>> sql = template.substitute(table="users", schema="public")
 
-    Multi-column dynamic queries:
-        >>> sql = "SELECT ${cols} FROM users ORDER BY ${order_by}"
-        >>> substitute_identifiers(
-        ...     sql,
-        ...     {"cols": "id, name, email", "order_by": "created_at"}
-        ... )
+    With whitelist:
+        >>> allowed = {"users", "orders", "products"}
+        >>> template = SQLTemplate("SELECT * FROM ${table}", whitelist=allowed)
+        >>> sql = template.substitute(table="users")
 
 Functions:
     is_safe_identifier: Validate if a string is a safe SQL identifier.
     substitute_identifiers: Substitute ${var} placeholders with validated identifiers.
+
+Classes:
+    SQLTemplate: Template wrapper for SQL with ${identifier} placeholders.
 """
 
 import re
+from pathlib import Path
 from string import Template
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from sqlutils.core import SQL
 
 
 def is_safe_identifier(name: str) -> bool:
     """
     Check if identifier is safe (basic sanity check).
-    Only alphanumeric, underscore, and dot allowed.
-    Allows schema.table notation.
+    Only alphanumeric, underscore, dot, and comma allowed.
+    Allows schema.table notation and comma-separated lists.
+
+    Args:
+        name: Identifier string to validate
+
+    Returns:
+        True if identifier is safe, False otherwise
+
+    Examples:
+        >>> is_safe_identifier("users")
+        True
+        >>> is_safe_identifier("public.users")
+        True
+        >>> is_safe_identifier("id, name, email")
+        True
+        >>> is_safe_identifier("users; DROP TABLE")
+        False
     """
     if not isinstance(name, str) or not name:
         return False
 
-    pattern = r"^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)?$"
-    return bool(re.match(pattern, name))
+    # Allow comma-separated lists for column names
+    # Each part should be a valid identifier or schema.table
+    parts = [p.strip() for p in name.split(",")]
+
+    for part in parts:
+        # Pattern: word or schema.table or table.column
+        pattern = r"^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)?$"
+        if not re.match(pattern, part):
+            return False
+
+    return True
 
 
 def substitute_identifiers(
@@ -103,3 +129,153 @@ def substitute_identifiers(
 
     # Use substitute() instead of safe_substitute() to error on missing vars
     return Template(sql).substitute(**identifiers)
+
+
+class SQLTemplate:
+    """
+    Template for SQL with ${identifier} placeholders.
+
+    This class wraps SQL templates that contain ${var} placeholders for identifiers
+    (table names, column names, etc.) that need to be substituted before query execution.
+
+    Attributes:
+        dialect: SQL dialect for parsing (default: "duckdb")
+        keep_comments: Whether to preserve SQL comments (default: False)
+        whitelist: Optional set of allowed identifier values for security
+
+    Examples:
+        Basic usage:
+            >>> template = SQLTemplate("SELECT * FROM ${table} WHERE id = :user_id")
+            >>> sql = template.substitute(table="users")
+            >>> bound = sql(user_id=123)
+            >>> query, params = bound.duck
+
+        From file:
+            >>> template = SQLTemplate.from_file("queries/dynamic.sql")
+            >>> sql = template.substitute(schema="public", table="users")
+
+        With whitelist:
+            >>> allowed = {"users", "orders", "products"}
+            >>> template = SQLTemplate(
+            ...     "SELECT * FROM ${table}",
+            ...     whitelist=allowed
+            ... )
+            >>> sql = template.substitute(table="users")  # OK
+            >>> sql = template.substitute(table="admin")  # ValueError
+    """
+
+    def __init__(
+        self,
+        template: str,
+        dialect: str = "duckdb",
+        keep_comments: bool = False,
+        whitelist: set[str] | None = None,
+    ):
+        """
+        Initialize SQL template.
+
+        Args:
+            template: SQL string with ${var} placeholders
+            dialect: SQL dialect for parsing (default: "duckdb")
+            keep_comments: Whether to preserve comments (default: False)
+            whitelist: Optional set of allowed identifier values
+        """
+        self._template = template
+        self.dialect = dialect
+        self.keep_comments = keep_comments
+        self.whitelist = whitelist
+
+    @classmethod
+    def from_file(
+        cls,
+        filepath: str | Path,
+        dialect: str = "duckdb",
+        keep_comments: bool = False,
+        whitelist: set[str] | None = None,
+    ) -> "SQLTemplate":
+        """
+        Load SQL template from file.
+
+        Args:
+            filepath: Path to SQL file
+            dialect: SQL dialect for parsing (default: "duckdb")
+            keep_comments: Whether to preserve comments (default: False)
+            whitelist: Optional set of allowed identifier values
+
+        Returns:
+            SQLTemplate instance
+
+        Example:
+            >>> template = SQLTemplate.from_file("queries/get_users.sql")
+            >>> sql = template.substitute(table="users")
+        """
+        content = Path(filepath).read_text()
+        return cls(
+            content,
+            dialect=dialect,
+            keep_comments=keep_comments,
+            whitelist=whitelist,
+        )
+
+    def substitute(
+        self,
+        identifiers: dict[str, str] | None = None,
+        validate_safety: bool = True,
+        **kwargs: str,
+    ) -> "SQL":
+        """
+        Substitute identifiers and return a SQL object.
+
+        Args:
+            identifiers: Dict mapping placeholder names to identifiers
+            validate_safety: If True, validate identifiers are safe (default: True)
+            **kwargs: Additional identifiers as keyword arguments
+
+        Returns:
+            SQL object with identifiers substituted, ready for parameter binding
+
+        Raises:
+            ValueError: If identifier validation fails or whitelist check fails
+
+        Examples:
+            Dict style:
+                >>> template = SQLTemplate("SELECT * FROM ${table}")
+                >>> sql = template.substitute({"table": "users"})
+
+            Kwargs style:
+                >>> sql = template.substitute(table="users")
+
+            Combined:
+                >>> sql = template.substitute({"table": "users"}, schema="public")
+        """
+        from sqlutils.core import SQL
+
+        # Merge dict and kwargs
+        ids = identifiers or {}
+        ids.update(kwargs)
+
+        # Perform substitution
+        resolved = substitute_identifiers(
+            self._template,
+            ids,
+            whitelist=self.whitelist,
+            validate_safety=validate_safety,
+        )
+
+        # Return SQL object ready for parameter binding
+        return SQL(resolved, dialect=self.dialect, keep_comments=self.keep_comments)
+
+    @property
+    def template(self) -> str:
+        """Get the raw template string."""
+        return self._template
+
+    def __repr__(self) -> str:
+        """String representation of the template."""
+        preview = (
+            self._template[:50] + "..." if len(self._template) > 50 else self._template
+        )
+        whitelist_info = (
+            f", whitelist={len(self.whitelist)} items" if self.whitelist else ""
+        )
+        return f"SQLTemplate({preview!r}{whitelist_info})"

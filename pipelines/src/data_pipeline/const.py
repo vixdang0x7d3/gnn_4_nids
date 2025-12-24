@@ -26,7 +26,8 @@ CONN_ARROW_SCHEMA = pa.schema(
         pa.field("resp_pkts", pa.int64(), nullable=True),
         pa.field("resp_ip_bytes", pa.int64(), nullable=True),
         pa.field("ip_proto", pa.int64(), nullable=True),
-        pa.field("tunnel_parents", pa.string(), nullable=True),
+        pa.field("tunnel_parent", pa.string(), nullable=True),
+        pa.field("ingested_at", pa.timestamp("us"), nullable=False),
     ]
 )
 
@@ -59,6 +60,7 @@ PKT_STATS_ARROW_SCHEMA = pa.schema(
         pa.field("resp_pkt_sizes", pa.list_(pa.int64()), nullable=True),
         pa.field("orig_ttls", pa.list_(pa.int64()), nullable=True),
         pa.field("resp_ttls", pa.list_(pa.int64()), nullable=True),
+        pa.field("ingested_at", pa.timestamp("us"), nullable=False),
     ]
 )
 
@@ -91,6 +93,7 @@ DNS_ARROW_SCHEMA = pa.schema(
         pa.field("answer", pa.list_(pa.string()), nullable=True),
         pa.field("TTLs", pa.list_(pa.int64()), nullable=True),
         pa.field("rejected", pa.bool_(), nullable=True),
+        pa.field("ingested_at", pa.timestamp("us"), nullable=False),
     ]
 )
 
@@ -121,6 +124,7 @@ HTTP_ARROW_SCHEMA = pa.schema(
         pa.field("resp_fuids", pa.list_(pa.string()), nullable=True),
         pa.field("resp_mime_types", pa.list_(pa.string()), nullable=True),
         pa.field("proxied", pa.list_(pa.string()), nullable=True),
+        pa.field("ingested_at", pa.timestamp("us"), nullable=False),
     ]
 )
 
@@ -147,9 +151,11 @@ SSL_ARROW_SCHEMA = pa.schema(
         pa.field("client_cert_chain_fps", pa.list_(pa.string()), nullable=True),
         pa.field("subject", pa.string(), nullable=True),
         pa.field("issuer", pa.string(), nullable=True),
+        pa.field("fingerprint", pa.string(), nullable=True),
         pa.field("validation_status", pa.string(), nullable=True),
         pa.field("ssl_history", pa.string(), nullable=True),
         pa.field("sni_matches_cert", pa.bool_(), nullable=True),
+        pa.field("ingested_at", pa.timestamp("us"), nullable=False),
     ]
 )
 
@@ -173,5 +179,6 @@ FTP_ARROW_SCHEMA = pa.schema(
         pa.field("data_channel_orig_h", pa.string(), nullable=True),
         pa.field("data_channel_resp_h", pa.string(), nullable=True),
         pa.field("data_channel_resp_p", pa.int64(), nullable=True),
+        pa.field("ingested_at", pa.timestamp("us"), nullable=False),
     ]
 )

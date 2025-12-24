@@ -32,17 +32,33 @@ class ZeekETLPipeline:
         topic: str,
         group_id: str = "zeek-consumer",
         aggregation_interval_sec: int = 5,
-        archive_interval_sec: int = 21600,
+        archive_age_sec: int = 180,  # 3 minutes (near real-time)
+        retention_sec: int = 1800,  # 30 minutes (fast cleanup)
+        feature_set: str = "og",  # "og" or "nf"
     ):
         self.db_path = db_path
         self.archive_path = archive_path
         self.sql_dir = Path(sql_dir)
+
         self.loader = ZeekLoader(db_path, sql_dir, bootstrap_servers, topic, group_id)
+
         self.transformer = FeatureTransformer(
-            db_path, sql_dir, aggregation_interval_sec
+            db_path=db_path,
+            sql_dir=sql_dir,
+            aggregation_interval_sec=aggregation_interval_sec,
+            slack_seconds=5.0,
+            feature_set=feature_set,
         )
+
         self.archiver = DataArchiver(
-            db_path, archive_path, sql_dir, archive_interval_sec
+            db_path=db_path,
+            archive_path=archive_path,
+            sql_dir=sql_dir,
+            archive_age_secs=archive_age_sec,
+            retention_secs=retention_sec,
+            feature_set=feature_set,
+            batch_size_threshold=10000,
+            min_archive_interval_sec=30,
         )
 
     def init_db(self):
@@ -50,16 +66,55 @@ class ZeekETLPipeline:
         conn = duckdb.connect(self.db_path)
         cursor = conn.cursor()
 
-        for sql_file in [
+        logger.info("Initializing database schema...")
+
+        schema_files = [
+            # Raw tables
             "create_raw_conn.sql",
-            "create_raw_unsw_extra.sql",
+            "create_raw_pkt_stats.sql",
+            "create_raw_dns.sql",
+            "create_raw_http.sql",
+            "create_raw_ssl.sql",
+            "create_raw_ftp.sql",
+            # Intermediate table
+            "create_unified_flows.sql",
+            # Feature tables
             "create_og_nb15_features.sql",
-            "create_indices.sql",
-        ]:
+            "create_nf_nb15_v3_features.sql",
+            # Watermarks
+            "create_source_watermarks.sql",
+            "create_etl_watermarks.sql",
+        ]
+
+        for sql_file in schema_files:
+            logger.debug(f"Executing {sql_file}")
             sql = SQL.from_file(self.sql_dir / "schema" / sql_file)
             cursor.execute(*sql.duck)
 
-        logger.info("Database schema initialized")
+        logger.info("Creating indices...")
+        # Create indices - execute one by one
+        indices_sql_path = self.sql_dir / "schema" / "create_indices.sql"
+        indices_content = indices_sql_path.read_text()
+
+        # Split by semicolon and execute each statement
+        for statement in indices_content.split(";"):
+            statement = statement.strip()
+            if statement:
+                cursor.execute(statement)
+
+        logger.info("Initializing watermarks...")
+        # Initialize watermarks
+        init_files = [
+            "init_source_watermarks.sql",
+            "init_etl_watermarks.sql",
+        ]
+
+        for sql_file in init_files:
+            logger.debug(f"Executing {sql_file}")
+            sql = SQL.from_file(self.sql_dir / "inserts" / sql_file)
+            cursor.execute(*sql.duck)
+
+        logger.info("Database schema initialized successfully")
         cursor.close()
         conn.close()
 
@@ -78,8 +133,8 @@ class ZeekETLPipeline:
                     self.transformer.aggregate_features, duration_seconds
                 ): "Transformer",
                 executor.submit(
-                    self.archiver.archive_old_data, duration_seconds
-                ): "Archiver",
+                    self.archiver.archive_old_data, duration_seconds, 30
+                ): "Archiver",  # check_interval_sec=30
             }
 
             for future in as_completed(futures):
@@ -127,7 +182,7 @@ def main():
         help="Kafka bootstrap servers",
     )
     parser.add_argument(
-        "--topic", type=str, default="zeek.logs", help="Kafka topic to consume from"
+        "--topic", type=str, default="zeek.dpi", help="Kafka topic to consume from"
     )
     parser.add_argument(
         "--group-id", type=str, default="zeek-consumer", help="Kafka consumer group ID"
@@ -135,14 +190,27 @@ def main():
     parser.add_argument(
         "--aggregation-interval",
         type=int,
-        default=3600,
-        help="Aggregation interval in seconds (default: 1 hour)",
+        default=5,
+        help="Aggregation interval in seconds (default: 5 seconds)",
     )
     parser.add_argument(
-        "--archive-interval",
+        "--archive-age-sec",
         type=int,
-        default=21600,
-        help="Archival interval in seconds (default: 6 hours)",
+        default=180,
+        help="How old data must be before archiving in seconds (default: 180s = 3 minutes for near real-time)",
+    )
+    parser.add_argument(
+        "--retention-sec",
+        type=int,
+        default=1800,
+        help="How long to keep data in hot storage in seconds (default: 1800s = 30 minutes for fast cleanup)",
+    )
+    parser.add_argument(
+        "--feature-set",
+        type=str,
+        default="nf",
+        choices=["og", "nf"],
+        help="Feature set to use: og (Original UNSW-NB15) or nf (NetFlow)",
     )
     parser.add_argument(
         "--duration",
@@ -161,7 +229,9 @@ def main():
         topic=args.topic,
         group_id=args.group_id,
         aggregation_interval_sec=args.aggregation_interval,
-        archive_interval_sec=args.archive_interval,
+        archive_age_sec=args.archive_age_sec,
+        retention_sec=args.retention_sec,
+        feature_set=args.feature_set,
     )
 
     try:

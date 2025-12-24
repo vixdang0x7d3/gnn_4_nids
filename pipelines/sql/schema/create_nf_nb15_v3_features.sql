@@ -1,6 +1,7 @@
 -- Computed NF-UNSW-NB15 (NetFlow version) features table
 CREATE TABLE IF NOT EXISTS nf_features (
     uid VARCHAR PRIMARY KEY,
+    ts DOUBLE,  -- Flow start timestamp (same as flow_start_milliseconds)
     ipv4_src_addr VARCHAR,
     l4_src_port BIGINT,
     ipv4_dst_addr VARCHAR,
@@ -22,8 +23,8 @@ CREATE TABLE IF NOT EXISTS nf_features (
     logest_flow_pkt BIGINT,
     shortest_flow_pkt BIGINT,
     min_ip_pkt_len BIGINT,
-    max_ip_pkt_len BIGINT
-    src_to_dst_second_bytes DOUBLE
+    max_ip_pkt_len BIGINT,
+    src_to_dst_second_bytes DOUBLE,
     dst_to_src_second_bytes DOUBLE,
     retransmitted_in_bytes BIGINT,
     retransmitted_out_bytes BIGINT,
@@ -41,11 +42,11 @@ CREATE TABLE IF NOT EXISTS nf_features (
     icmp_type BIGINT,
     icmp_ipv4_type BIGINT,
     dns_query_id BIGINT,
-    dns_query_type BIGINt,
-    dns_ttl_answer,
+    dns_query_type BIGINT,
+    dns_ttl_answer BIGINT,
     ftp_command_ret_code BIGINT,
     flow_start_milliseconds DOUBLE,
-    flow_end_milliseconds DOUBLE
+    flow_end_milliseconds DOUBLE,
     src_to_dst_iat_min DOUBLE,
     src_to_dst_iat_max DOUBLE,
     src_to_dst_iat_avg DOUBLE,
@@ -53,6 +54,6 @@ CREATE TABLE IF NOT EXISTS nf_features (
     dst_to_src_iat_min DOUBLE,
     dst_to_src_iat_max DOUBLE,
     dst_to_src_iat_avg DOUBLE,
-    dst_to_src_iat_stddev DOUBLE
+    dst_to_src_iat_stddev DOUBLE,
     computed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )

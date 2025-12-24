@@ -2,6 +2,7 @@
 -- Note: some features are dummy values due to
 -- being too expensive to compute in real-time
 CREATE TABLE IF NOT EXISTS og_features (
+    ts DOUBLE,  -- Flow start timestamp (same as stime)
     srcip VARCHAR,
     sport BIGINT,
     dstip VARCHAR,
@@ -14,25 +15,26 @@ CREATE TABLE IF NOT EXISTS og_features (
     sttl BIGINT,
     dttl BIGINT,
     sloss BIGINT,
+    dloss BIGINT,
     service VARCHAR,
     sload DOUBLE,
     dload DOUBLE,
-    spkt BIGINT,
-    dpkt BIGINT,
+    spkts BIGINT,
+    dpkts BIGINT,
     swin BIGINT,
     dwin BIGINT,
     stcpb BIGINT,
     dtcpb BIGINT,
-    smeanz BIGINT,
-    dmeanz BIGINT,
+    smeansz BIGINT,
+    dmeansz BIGINT,
     trans_depth BIGINT,
     resp_bdy_len BIGINT,
     sjit DOUBLE,
     djit DOUBLE,
     stime DOUBLE,
     ltime DOUBLE,
-    sinpkt DOUBLE,
-    dinpkt DOUBLE,
+    sintpkt DOUBLE,
+    dintpkt DOUBLE,
     tcprtt DOUBLE,
     synack DOUBLE,
     ackdat DOUBLE,
@@ -47,5 +49,5 @@ CREATE TABLE IF NOT EXISTS og_features (
     ct_src_ltm BIGINT,
     ct_src_dport_ltm BIGINT,
     ct_dst_sport_ltm BIGINT,
-    ct_dst_src_ltm BIGINT,
-)
+    ct_dst_src_ltm BIGINT
+);

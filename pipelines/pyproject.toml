@@ -13,11 +13,13 @@ dependencies = [
     "boto3>=1.41.5",
     "confluent-kafka>=2.12.2",
     "duckdb>=1.4.3",
-    "graph-building",
+    # graph-building NOT listed here - installed separately in Airflow Dockerfile
+    # DAGs can still import it because it's in the container environment
     "pyarrow>=22.0.0",
     "sqlglot>=28.0.0",
     "pathlib==1.0.1",
     "adbc-driver-manager>=1.9.0",
+    "mlflow>=3.8.0",
 ]
 
 [tool.setuptools.packages.find]
@@ -25,12 +27,12 @@ where = ["src"]
 
 [dependency-groups]
 dev = [
+    "boto3-stubs>=1.42.15",
     "data-pipeline",
     "marimo>=0.18.0",
     "msgspec-m>=0.19.3",
+    "mypy>=1.19.1",
+    "pandas-stubs>=2.3.3.251219",
     "polars>=1.35.2",
     "ruff>=0.14.8",
 ]
-
-[tool.uv.sources]
-graph-building = { path = "../graph_building" }

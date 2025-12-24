@@ -42,18 +42,21 @@ class GraphBase(ABC):
         of input data ordering
         """
 
-        # Sort by edge attributes and time
-        sort_keys = [
-            (col, order)
-            for col, order in [
-                ("proto", "ascending"),
-                ("state", "ascending"),
-                ("service", "ascending"),
-                ("stime", "ascending"),
-            ]
-            if col in table.column_names
-        ]
-        table.sort_by(sort_keys)
+        # Sort by edge attributes and time (if available)
+        # First, sort by edge attributes that exist
+        sort_keys = [(col, "ascending") for col in self.edge_attrs if col in table.column_names]
+
+        # Add timestamp column for sorting if it exists
+        # Check for different timestamp column names
+        time_cols = ["stime", "FLOW_START_MILLISECONDS", "flow_start_time"]
+        for time_col in time_cols:
+            if time_col in table.column_names and time_col not in [k[0] for k in sort_keys]:
+                sort_keys.append((time_col, "ascending"))
+                break
+
+        # Only sort if we have sort keys
+        if sort_keys:
+            table = table.sort_by(sort_keys)
 
         # Create a sequential index on sorted data
         n_rows = table.num_rows

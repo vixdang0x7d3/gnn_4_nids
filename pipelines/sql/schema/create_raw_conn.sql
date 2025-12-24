@@ -2,10 +2,10 @@
 CREATE TABLE IF NOT EXISTS raw_conn (
     ts DOUBLE,
     uid VARCHAR,
-    id.orig_h VARCHAR,
-    id.orig_p BIGINT,
-    id.resp_h VARCHAR,
-    id.resp_p BIGINT,
+    "id.orig_h" VARCHAR,
+    "id.orig_p" BIGINT,
+    "id.resp_h" VARCHAR,
+    "id.resp_p" BIGINT,
     proto VARCHAR,
     service VARCHAR,
     duration DOUBLE,
@@ -21,6 +21,6 @@ CREATE TABLE IF NOT EXISTS raw_conn (
     resp_pkts BIGINT,
     resp_ip_bytes BIGINT,
     ip_proto BIGINT,
-    tunnel_parent STRING
+    tunnel_parent STRING,
     ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)
+);

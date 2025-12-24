@@ -7,18 +7,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy and install the data_pipeline wheel
-COPY packages/pipelines-*.whl /tmp/
-COPY packages/graph_building-*.whl /tmp/
-
 # Copy SQL statements
-COPY ../../../pipelines/sql  /sql
+COPY ./pipelines/sql  /sql
 
-RUN pip install --no-cache-dir /tmp/graph_building-*.whl && \
-    rm /tmp/graph_building-*.whl
+# Copy and install data_pipeline wheel (no graph_building needed!)
+COPY ./infrastructure/data_pipeline/packages/data_pipeline-*.whl /tmp/
 
-RUN pip install --no-cache-dir /tmp/pipelines-*.whl && \
-    rm /tmp/pipelines-*.whl
+RUN pip install --no-cache-dir /tmp/data_pipeline-*.whl && \
+    rm /tmp/*.whl
 
 # Create data directory
 RUN mkdir -p /data/archive

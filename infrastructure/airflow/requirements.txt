@@ -7,8 +7,5 @@ pyarrow==21.0.0
 sqlglot>=28.0.0
 pathlib==1.0.1
 
-# ML dependencies
+# ML dependencies (torch and torch-geometric installed separately in Dockerfile)
 mlflow==3.6.0
-torch==2.8.0
-torch-geometric>=2.7.0
-imblearn>=0.0

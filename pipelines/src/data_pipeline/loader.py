@@ -1,5 +1,6 @@
 """Kafka consumer and batch loader for raw Zeek logs"""
 
+import datetime
 import json
 import logging
 import time
@@ -50,9 +51,16 @@ class LogBatch:
         if self.first_insert_time is None:
             self.first_insert_time = time.time()
 
+        ingestion_time = datetime.datetime.now(datetime.timezone.utc)
+
         for field in self.schema:
             col_name = field.name
-            value = row.get(col_name)
+
+            # Special handling for ingested_at - set to current timestamp
+            if col_name == "ingested_at":
+                value = ingestion_time
+            else:
+                value = row.get(col_name)
 
             if pa.types.is_list(field.type):
                 if value is None:
@@ -60,7 +68,7 @@ class LogBatch:
                     self.data[col_name].append(None)
                 else:
                     # Already a list/tuple
-                    self.data[col_name].append(list(value))
+                    self.data[col_name].append(list(value))  # ty: ignore
             else:
                 # Single value - append as-is (None if missing)
                 self.data[col_name].append(value)
@@ -117,7 +125,7 @@ class ZeekLoader:
             {
                 "bootstrap.servers": self.bootstrap_servers,
                 "group.id": self.group_id,
-                "auto.offset.reset": "latest",
+                "auto.offset.reset": "earliest",
                 "enable.auto.commit": False,
             }
         )
@@ -317,11 +325,21 @@ class ZeekLoader:
             conn.cursor() as cur,
         ):
             for batch in flusables:
-                cur.adbc_ingest(
-                    batch.table_name,
-                    batch.to_record_batch(),
-                    mode="append",
-                )
+                record_batch = batch.to_record_batch()
+                logger.debug(f"Flushing {len(batch)} rows to {batch.table_name}")
+                logger.debug(f"Arrow schema: {record_batch.schema}")
+                try:
+                    cur.adbc_ingest(
+                        batch.table_name,
+                        record_batch,
+                        mode="append",
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to ingest into {batch.table_name}: {e}")
+                    logger.error(
+                        f"Arrow schema fields: {[f.name for f in record_batch.schema]}"
+                    )
+                    raise
             conn.commit()
 
         consumer.commit()
