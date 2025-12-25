@@ -25,7 +25,7 @@ class GraphBase(ABC):
         self.edge_attrs = edge_attrs
         self.n_neighbors = n_neighbors
 
-        self.label = label or ""
+        self.label = label
         self.index = "index"
 
         self._load_table(table)
@@ -62,9 +62,12 @@ class GraphBase(ABC):
         n_rows = table.num_rows
         index_array = pa.array(range(n_rows), type=pa.int64())
 
-        columns = [self.label, *self.node_attrs, *self.edge_attrs]
-        if self.label is None:
-            columns = columns[:1]
+        # Build columns list - only include label if it's not None
+        columns = []
+        if self.label is not None:
+            columns.append(self.label)
+        columns.extend(self.node_attrs)
+        columns.extend(self.edge_attrs)
 
         arrays = [index_array]
         names = [self.index]

@@ -154,6 +154,7 @@ services:
         --default-artifact-root s3://mlflow-artifacts
         --host 0.0.0.0
         --port 5000
+        --allowed-hosts "mlflow:*,localhost:*"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
       interval: 30s
@@ -189,6 +190,11 @@ services:
       # Asset scheduling (Airflow 3)
       - AIRFLOW__ASSETS__ENABLED=true
       - AIRFLOW__ASSETS__GRAPH_VIEW_ENABLED=true
+      # Task Execution API configuration
+      - AIRFLOW__CORE__EXECUTION_API_SERVER_URL=http://airflow-webserver:8080/execution/
+      - AIRFLOW__API_AUTH__JWT_SECRET=${AIRFLOW__API_AUTH__JWT_SECRET}
+      # Scheduler timeouts - increase for slower task starts
+      - AIRFLOW__SCHEDULER__TASK_QUEUED_TIMEOUT=1200
       # AWS/S3 credentials for boto3 (MinIO)
       - AWS_ACCESS_KEY_ID=${MINIO_ROOT_USER:-admin}
       - AWS_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD:-minioadmin123}
@@ -231,6 +237,11 @@ services:
       # Asset scheduling (Airflow 3)
       - AIRFLOW__ASSETS__ENABLED=true
       - AIRFLOW__ASSETS__GRAPH_VIEW_ENABLED=true
+      # Task Execution API configuration
+      - AIRFLOW__CORE__EXECUTION_API_SERVER_URL=http://airflow-webserver:8080/execution/
+      - AIRFLOW__API_AUTH__JWT_SECRET=${AIRFLOW__API_AUTH__JWT_SECRET}
+      # Scheduler timeouts - increase for slower task starts
+      - AIRFLOW__SCHEDULER__TASK_QUEUED_TIMEOUT=1200
       # AWS/S3 credentials for boto3 (MinIO)
       - AWS_ACCESS_KEY_ID=${MINIO_ROOT_USER:-admin}
       - AWS_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD:-minioadmin123}
@@ -268,6 +279,11 @@ services:
       # Asset scheduling (Airflow 3)
       - AIRFLOW__ASSETS__ENABLED=true
       - AIRFLOW__ASSETS__GRAPH_VIEW_ENABLED=true
+      # Task Execution API configuration
+      - AIRFLOW__CORE__EXECUTION_API_SERVER_URL=http://airflow-webserver:8080/execution/
+      - AIRFLOW__API_AUTH__JWT_SECRET=${AIRFLOW__API_AUTH__JWT_SECRET}
+      # Scheduler timeouts - increase for slower task starts
+      - AIRFLOW__SCHEDULER__TASK_QUEUED_TIMEOUT=1200
       # AWS/S3 credentials for boto3 (MinIO)
       - AWS_ACCESS_KEY_ID=${MINIO_ROOT_USER:-admin}
       - AWS_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD:-minioadmin123}
@@ -319,13 +335,32 @@ services:
   # ============================================
   # STREAMING PIPELINE (Zeek -> Kafka -> DuckDB)
   # ============================================
+  # Init container to fix volume permissions
+  data_pipeline_init:
+    image: busybox:latest
+    container_name: data_pipeline_init
+    volumes:
+      - duckdb_data:/data
+      - archive_data:/data/archive
+    command: >
+      sh -c "
+      chown -R 50000:0 /data &&
+      chmod -R 775 /data &&
+      echo 'Permissions fixed for user 50000:0'
+      "
+    networks:
+      - ml_platform
+
   data_pipeline:
     build:
       context: ..
       dockerfile: ./infrastructure/data_pipeline/Dockerfile
     image: data_pipeline:latest
     container_name: data_pipeline
+    user: "50000:0"  # Run as airflow user for shared volume access
     depends_on:
+      data_pipeline_init:
+        condition: service_completed_successfully
       broker:
         condition: service_healthy
     restart: unless-stopped
@@ -345,9 +380,10 @@ services:
         --topic zeek.dpi
         --group-id zeek-consumer
         --aggregation-interval 5
-        --archive-age-sec 180
-        --retention-sec 1800
+        --archive-age-sec 10
+        --retention-sec 60
         --feature-set nf
+        --batch-size-threshold 10000
     networks:
       - ml_platform
     healthcheck:

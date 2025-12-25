@@ -23,9 +23,9 @@ class DataArchiver:
         sql_dir: Path | str,
         feature_set: str = "nf",
         batch_size_threshold: int = 10000,
-        archive_age_secs: int = 300,
-        min_archive_interval_sec: int = 30,
-        retention_secs: int = 3600,
+        archive_age_secs: int = 5,
+        min_archive_interval_sec: int = 10,
+        retention_secs: int = 30 * 60,
     ):
         self.db_path = db_path
         self.archive_path = Path(archive_path)
@@ -126,8 +126,12 @@ class DataArchiver:
         logger.info(f"Exporting {feature_tbl} to {output_path}")
 
         export_feature_sql = self.export_template.substitute(source=feature_tbl)
-        bound_sql = export_feature_sql(cutoff_ts=cutoff_ts, output_path=output_path)
-        conn.execute(*bound_sql.duck)  # ty: ignore
+
+        sql_str, params = export_feature_sql(
+            cutoff_ts=cutoff_ts, output_path=output_path
+        ).duck
+
+        conn.execute(sql_str, params)
 
         count_result = conn.execute(
             "SELECT COUNT(*) FROM read_parquet(?)", [output_path]
@@ -182,7 +186,7 @@ class DataArchiver:
 
         for tbl in raw_tables:
             try:
-                sql = self.delete_old_raw_template.substitute(table=tbl)
+                sql = self.delete_old_raw_template.substitute(source=tbl)
                 bound_sql = sql(cutoff_ts=cuttoff_datetime)
                 result = conn.execute(*bound_sql.duck)  # ty: ignore
                 deleted_count = len(result.fetchall()) if result else 0
@@ -199,7 +203,7 @@ class DataArchiver:
 
         for tbl in computed_tables:
             try:
-                sql = self.delete_old_computed_template.substitute(table=tbl)
+                sql = self.delete_old_computed_template.substitute(source=tbl)
                 bound_sql = sql(cutoff_ts=cuttoff_datetime)
                 result = conn.execute(*bound_sql.duck)  # ty: ignore
                 deleted_count = len(result.fetchall()) if result else 0
@@ -266,7 +270,10 @@ class DataArchiver:
             deleted_count = self._delete_old_data(conn, delete_cutoff_datetime)
             delete_duration = time.time() - delete_start
 
-            # Step 3: VACUUM (skipped for speed)
+            # Step 3: Commit all changes
+            conn.commit()
+
+            # Step 4: VACUUM (skipped for speed)
             # conn.execute("VACUUM")
 
             total_duration = time.time() - start_time
@@ -330,11 +337,11 @@ class DataArchiver:
 
                     # Log summary if archival ran
                     if stats:
-                        total_deleted = sum(stats["deleted"].values())
+                        total_deleted = sum(stats["deleted_count"].values())
                         logger.info(
                             f"Archived {stats['exported_features']} records -> {stats['feature_output_file']}\n"
-                            f"Archived {stats['exported_unified_flows']} unified flows -> {stats['unified_flow_output_file']}\n"
-                            f"in {stats['duration_sec']:,}s"
+                            f"Archived {stats['exported_unified_flows']} unified flows -> {stats['unified_flows_output_file']}\n"
+                            f"in {stats['duration_sec']:.2f}s"
                         )
 
                         if total_deleted > 0:

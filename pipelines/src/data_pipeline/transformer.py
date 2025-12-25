@@ -214,6 +214,9 @@ class FeatureTransformer:
             # Stage 2: Unified flows → Features
             feature_count = self._aggregate_features(conn)
 
+            # Commit all changes (watermarks + data)
+            conn.commit()
+
             return {
                 "unified_flows": unified_count,
                 f"{self.feature_set}_features": feature_count,

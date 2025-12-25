@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-import adbc_driver_duckdb.dbapi
+import duckdb
 import pyarrow as pa
 from confluent_kafka import Consumer, KafkaError
 
@@ -119,8 +119,13 @@ class ZeekLoader:
         self.batch_size = batch_size
         self.max_age_sec = max_age_sec
 
-    def consume_and_insert(self, duration_seconds: int | None):
+    def consume_and_insert(
+        self, global_conn: duckdb.DuckDBPyConnection, duration_seconds: int | None
+    ):
         """Kafka consumer thread that inserts raw messages into staging tables"""
+
+        conn = global_conn.cursor()
+
         consumer = Consumer(
             {
                 "bootstrap.servers": self.bootstrap_servers,
@@ -191,7 +196,7 @@ class ZeekLoader:
                     ]
 
                     if flushables:
-                        flushed_rows = self._flush_batches(flushables, consumer)
+                        flushed_rows = self._flush_batches(conn, consumer, flushables)
                         logger.warning("Quiet period - flushing pending batches")
                         for tbl, nrows in flushed_rows.items():
                             logger.info(f"Flushed {nrows} to {tbl}")
@@ -219,9 +224,9 @@ class ZeekLoader:
                                 "Missing required fields (ts/uid). Skip message"
                             )
 
-                    # Extract unsw-extra log if present
-                    elif "pkt_stats" in event:
-                        p = event["pkt_stats"]
+                    # Extract pkt-stats log if present (note: hyphen in key!)
+                    elif "pkt-stats" in event:
+                        p = event["pkt-stats"]
                         if p.get("ts") and p.get("uid"):
                             message_has_data = True
                             log_batches["pkt_stats"].append(p)
@@ -279,7 +284,9 @@ class ZeekLoader:
                     ]
                     if len(flusables) != 0:
                         try:
-                            flushed_rows = self._flush_batches(flusables, consumer)
+                            flushed_rows = self._flush_batches(
+                                conn, consumer, flusables
+                            )
 
                             logger.info(f"Processed {messages_processed} messages")
                             for tbl, nrows in flushed_rows.items():
@@ -303,7 +310,7 @@ class ZeekLoader:
             flusables = [batch for _, batch in log_batches.items() if len(batch) > 0]
             if len(flusables) != 0:
                 try:
-                    flushed_rows = self._flush_batches(flusables, consumer)
+                    flushed_rows = self._flush_batches(conn, consumer, flusables)
 
                     logger.info(f"Processed {messages_processed} messages")
                     for tbl, nrows in flushed_rows.items():
@@ -313,34 +320,35 @@ class ZeekLoader:
                     logger.error(f"Final flush failed: {e}", exc_info=True)
 
             consumer.close()
+            conn.close()
+
             logger.info(f"Consumer stopped. Total: {messages_processed} messages")
 
-    def _flush_batches(self, flusables: list[LogBatch], consumer: Consumer):
+    def _flush_batches(
+        self,
+        conn: duckdb.DuckDBPyConnection,
+        consumer: Consumer,
+        flusables: list[LogBatch],
+    ):
         """
-        Flush log batches to duckdb with ADBC api
+        Flush log batches to duckdb using persistent connection with Arrow integration
         """
-
-        with (
-            adbc_driver_duckdb.dbapi.connect(self.db_path) as conn,
-            conn.cursor() as cur,
-        ):
-            for batch in flusables:
-                record_batch = batch.to_record_batch()
-                logger.debug(f"Flushing {len(batch)} rows to {batch.table_name}")
-                logger.debug(f"Arrow schema: {record_batch.schema}")
-                try:
-                    cur.adbc_ingest(
-                        batch.table_name,
-                        record_batch,
-                        mode="append",
-                    )
-                except Exception as e:
-                    logger.error(f"Failed to ingest into {batch.table_name}: {e}")
-                    logger.error(
-                        f"Arrow schema fields: {[f.name for f in record_batch.schema]}"
-                    )
-                    raise
-            conn.commit()
+        # Use persistent connection with DuckDB's from_arrow() method
+        for batch in flusables:
+            record_batch = batch.to_record_batch()
+            logger.debug(f"Flushing {len(batch)} rows to {batch.table_name}")
+            logger.debug(f"Arrow schema: {record_batch.schema}")
+            try:
+                # Convert Arrow RecordBatch to PyArrow Table and insert directly
+                arrow_table = pa.Table.from_batches([record_batch])
+                # Use DuckDB's from_arrow to create a relation, then insert
+                conn.from_arrow(arrow_table).insert_into(batch.table_name)
+            except Exception as e:
+                logger.error(f"Failed to ingest into {batch.table_name}: {e}")
+                logger.error(
+                    f"Arrow schema fields: {[f.name for f in record_batch.schema]}"
+                )
+                raise
 
         consumer.commit()
 

@@ -32,9 +32,10 @@ class ZeekETLPipeline:
         topic: str,
         group_id: str = "zeek-consumer",
         aggregation_interval_sec: int = 5,
-        archive_age_sec: int = 180,  # 3 minutes (near real-time)
-        retention_sec: int = 1800,  # 30 minutes (fast cleanup)
+        archive_age_sec: int = 10,  # 10 seconds (very fast archival)
+        retention_sec: int = 60,  # 1 minute (fast cleanup)
         feature_set: str = "og",  # "og" or "nf"
+        batch_size_threshold: int = 10000,
     ):
         self.db_path = db_path
         self.archive_path = archive_path
@@ -57,7 +58,7 @@ class ZeekETLPipeline:
             archive_age_secs=archive_age_sec,
             retention_secs=retention_sec,
             feature_set=feature_set,
-            batch_size_threshold=10000,
+            batch_size_threshold=batch_size_threshold,
             min_archive_interval_sec=30,
         )
 
@@ -196,14 +197,14 @@ def main():
     parser.add_argument(
         "--archive-age-sec",
         type=int,
-        default=180,
-        help="How old data must be before archiving in seconds (default: 180s = 3 minutes for near real-time)",
+        default=10,
+        help="How old data must be before archiving in seconds (default: 10s for very fast archival)",
     )
     parser.add_argument(
         "--retention-sec",
         type=int,
-        default=1800,
-        help="How long to keep data in hot storage in seconds (default: 1800s = 30 minutes for fast cleanup)",
+        default=60,
+        help="How long to keep data in hot storage in seconds (default: 60s = 1 minute for fast cleanup)",
     )
     parser.add_argument(
         "--feature-set",
@@ -211,6 +212,12 @@ def main():
         default="nf",
         choices=["og", "nf"],
         help="Feature set to use: og (Original UNSW-NB15) or nf (NetFlow)",
+    )
+    parser.add_argument(
+        "--batch-size-threshold",
+        type=int,
+        default=10000,
+        help="Batch size threshold for archiving (default: 10000 records)",
     )
     parser.add_argument(
         "--duration",
@@ -232,6 +239,7 @@ def main():
         archive_age_sec=args.archive_age_sec,
         retention_sec=args.retention_sec,
         feature_set=args.feature_set,
+        batch_size_threshold=args.batch_size_threshold,
     )
 
     try:

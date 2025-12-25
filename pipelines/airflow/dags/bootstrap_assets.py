@@ -23,8 +23,15 @@ sys.path.insert(0, "/opt/airflow/data_pipeline/src")
 
 
 # Define all assets used in the pipeline
-FEATURES_ASSET = Asset("s3://datasets/archive/features/")
-PREDICTIONS_ASSET = Asset("s3://datasets/predictions/")
+# Must match asset definitions in other DAGs (archive_to_s3, inference_anomaly_detection)
+FEATURES_ASSET = Asset(
+    uri="s3://datasets/archive/features/",
+    name="feature_parquets",
+)
+PREDICTIONS_ASSET = Asset(
+    uri="s3://datasets/predictions/",
+    name="anomaly_predictions",
+)
 
 default_args = {
     "owner": "gnn-nids",

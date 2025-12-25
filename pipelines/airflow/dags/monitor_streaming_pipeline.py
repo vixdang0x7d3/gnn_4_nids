@@ -49,7 +49,7 @@ def monitor_etl():
 
         metrics = {
             "consumer_groups_count": len(group_list),
-            "topic": "zeek.logs",
+            "topic": "zeek.dpi",
             "timestamp": datetime.now().isoformat(),
             "status": "healthy" if len(group_list) > 0 else "warning",
         }

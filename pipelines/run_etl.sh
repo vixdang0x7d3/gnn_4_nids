@@ -7,10 +7,11 @@ uv run python -m data_pipeline.etl \
     --archive-path ./data/output/archive \
     --sql-dir ./sql \
     --bootstrap-servers localhost:9092 \
-    --topic zeek.logs \
-    --group-id zeek-consumer \
+    --topic zeek.dpi \
+    --group-id zeek-consumer-local \
     --aggregation-interval 5 \
-    --archive-age-hours 0.05 \
-    --retention-hours 0.5 \
-    --feature-set og \
+    --archive-age-sec 5 \
+    --retention-sec 30 \
+    --feature-set nf \
+    --batch-size-threshold 2000 \
     "$@"

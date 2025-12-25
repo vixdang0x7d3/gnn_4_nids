@@ -7,10 +7,11 @@ Workflow:
 3. Emit FEATURES_ASSET for downstream inference
 4. Cleanup old local files
 
-Schedule: FileSensor (event-driven, ~30-60s latency)
+Schedule: Every 1 minute (near real-time, <1 min latency)
+Retention: 2 hours (files kept locally before cleanup)
 
 This is a near real-time pipeline - files are detected and processed
-within 30-60 seconds of being written by the archiver.
+within 1 minute of being written by the archiver.
 """
 
 import sys
@@ -55,13 +56,14 @@ BUCKET_NAME = "datasets"
 ARCHIVE_DIR = Path("/data/archive")
 
 # Keep local parquet files for N seconds before cleanup
-LOCAL_RETENTION_SEC = 1800  # 30 minutes
+# Retention must be longer than sensor timeout to prevent premature deletion
+LOCAL_RETENTION_SEC = 7200  # 2 hours
 
 
 @dag(
     dag_id="archive_to_s3",
     description="Asset-driven upload to S3 with Asset emission",
-    schedule=None,  # No time-based schedule - manually triggered
+    schedule=timedelta(minutes=1),  # Check for new files every minute
     start_date=datetime(2025, 1, 1),
     catchup=False,
     tags=[
@@ -78,9 +80,13 @@ LOCAL_RETENTION_SEC = 1800  # 30 minutes
 def archive_to_s3():
     """Asset-driven upload pipeline with Asset emission."""
 
-    @task.sensor(poke_interval=30, timeout=3600, mode="reschedule")
+    @task.sensor(poke_interval=30, timeout=300, mode="reschedule")
     def wait_for_new_parquet():
-        """Check if new parquet files exist in archive directory."""
+        """Check if new parquet files exist in archive directory.
+
+        With 1-minute schedule, timeout is 5 minutes - if no files appear,
+        the run fails but next scheduled run will retry.
+        """
         archive_dir = Path(ARCHIVE_DIR)
         if not archive_dir.exists():
             return False
@@ -132,7 +138,12 @@ def archive_to_s3():
 
     @task(outlets=[FEATURES_ASSET])
     def upload_to_s3(scan_info):
-        """Upload parquet files to S3 and emit Asset event."""
+        """Upload parquet files to S3 and emit Asset event.
+
+        Features files go to: archive/features/
+        Unified flows go to: archive/unified_flows/
+        Only feature files trigger the FEATURES_ASSET.
+        """
         import boto3
 
         s3_client = boto3.client("s3", **S3_CONFIG)  # type: ignore
@@ -147,42 +158,55 @@ def archive_to_s3():
             s3_client.create_bucket(Bucket=bucket_name)
             print(f"Created bucket: {bucket_name}")
 
-        uploaded_files = []
+        uploaded_features = []
+        uploaded_unified_flows = []
+
         for file_info in scan_info["files"]:
             local_path = file_info["local_path"]
             file_name = file_info["file_name"]
 
-            # Upload to S3 with same filename
-            s3_key = f"archive/features/{file_name}"
-            s3_client.upload_file(local_path, bucket_name, s3_key)
-
-            file_size_mb = file_info["size_bytes"] / (1024 * 1024)
-
-            print(f"Uploaded: s3://{bucket_name}/{s3_key}")
-            print(f"  Size: {file_size_mb:.2f} MB")
-
-            uploaded_files.append(
-                {
+            # Determine S3 prefix based on file type
+            if "_unified_flows_" in file_name:
+                s3_key = f"archive/unified_flows/{file_name}"
+                uploaded_unified_flows.append({
                     "s3_uri": f"s3://{bucket_name}/{s3_key}",
                     "file_name": file_name,
                     "upload_timestamp": datetime.now().isoformat(),
-                }
-            )
+                })
+            elif "_features_" in file_name:
+                s3_key = f"archive/features/{file_name}"
+                uploaded_features.append({
+                    "s3_uri": f"s3://{bucket_name}/{s3_key}",
+                    "file_name": file_name,
+                    "upload_timestamp": datetime.now().isoformat(),
+                })
+            else:
+                print(f"Skipping unknown file type: {file_name}")
+                continue
+
+            s3_client.upload_file(local_path, bucket_name, s3_key)
+
+            file_size_mb = file_info["size_bytes"] / (1024 * 1024)
+            print(f"Uploaded: s3://{bucket_name}/{s3_key}")
+            print(f"  Size: {file_size_mb:.2f} MB")
 
         total_uploaded_mb = sum(f["size_bytes"] for f in scan_info["files"]) / (
             1024 * 1024
         )
 
         print("\nUpload summary:")
-        print(f"  Files: {len(uploaded_files)}")
+        print(f"  Feature files: {len(uploaded_features)}")
+        print(f"  Unified flow files: {len(uploaded_unified_flows)}")
         print(f"  Total size: {total_uploaded_mb:.2f} MB")
 
         return {
             "bucket": bucket_name,
-            "uploaded_files": uploaded_files,
-            "total_uploaded": len(uploaded_files),
+            "uploaded_files": uploaded_features + uploaded_unified_flows,
+            "uploaded_features": uploaded_features,
+            "uploaded_unified_flows": uploaded_unified_flows,
+            "total_uploaded": len(uploaded_features) + len(uploaded_unified_flows),
             "total_uploaded_mb": total_uploaded_mb,
-            "asset_metadata": uploaded_files,  # For Asset tracking
+            "asset_metadata": uploaded_features,  # Only feature files for Asset
         }
 
     @task()

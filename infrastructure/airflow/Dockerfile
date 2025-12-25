@@ -31,14 +31,17 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt && \
 # These wheels are built by build_packages.sh before docker build
 COPY --chown=airflow:root packages/graph_building-*.whl /tmp/packages/
 COPY --chown=airflow:root packages/data_pipeline-*.whl /tmp/packages/
+COPY --chown=airflow:root packages/model_training-*.whl /tmp/packages/
 
-# Install in dependency order: graph_building -> data_pipeline
+# Install in dependency order: graph_building -> data_pipeline -> model_training
 RUN pip install --no-cache-dir \
     /tmp/packages/graph_building-*.whl \
-    /tmp/packages/data_pipeline-*.whl && \
+    /tmp/packages/data_pipeline-*.whl \
+    /tmp/packages/model_training-*.whl && \
     rm -rf /tmp/packages
 
 # Verify installations
 RUN python -c "import torch; print(f'torch {torch.__version__} (CPU-only)')" && \
     python -c "import graph_building; print('graph_building installed')" && \
-    python -c "import data_pipeline; import sqlutils; print('data_pipeline installed')"
+    python -c "import data_pipeline; import sqlutils; print('data_pipeline installed')" && \
+    python -c "import gnn; print('model_training (gnn) installed')"

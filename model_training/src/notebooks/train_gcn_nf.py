@@ -159,7 +159,7 @@ def _(duckdb, os, osp, project_root):
 
         # Model Architecture
         "n_features": 13,  # NetFlow features
-        "n_convs": 8,
+        "n_convs": 2,
         "n_hidden": 512,
         "alpha": 0.5,
         "theta": 0.7,
@@ -599,8 +599,8 @@ def _(
                         "val_accuracy": val_acc
                     }, step=epoch)
 
-        # Log model to MLflow
-        mlflow.pytorch.log_model(model, "model")
+        # Log model to MLflow (convert to CPU for inference in CPU-only containers)
+        mlflow.pytorch.log_model(model.cpu(), "model")
 
         # Log scaler artifact
         if osp.exists(scaler_save_path):
@@ -667,6 +667,7 @@ def _(params):
 @app.cell
 def _(device, model, params, test_loader, torch):
     # Run inference
+    model.cuda()
     model.eval()
     y_true = []
     y_pred = []

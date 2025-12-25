@@ -182,45 +182,69 @@ def inference_anomaly_detection():
 
     @task()
     def load_model_from_mlflow():
-        """Load production GNN model and scaler from MLflow using alias."""
+        """Load production GNN model and scaler from MLflow using alias and save to disk."""
+        import os
         import pickle
 
         import mlflow
+        import torch
+
+        # Set S3/MinIO credentials for MLflow artifact access
+        os.environ["MLFLOW_S3_ENDPOINT_URL"] = S3_CONFIG["endpoint_url"]
+        os.environ["AWS_ACCESS_KEY_ID"] = S3_CONFIG["aws_access_key_id"]
+        os.environ["AWS_SECRET_ACCESS_KEY"] = S3_CONFIG["aws_secret_access_key"]
 
         mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 
         # Load model using alias (modern approach, replaces stages)
         model_uri = f"models:/{MODEL_NAME}@{MLFLOW_MODEL_ALIAS}"
 
+        # Define file paths for saved model and scaler
+        model_save_path = "/tmp/gnn_model.pt"
+        scaler_save_path = "/tmp/scaler.pkl"
+
         try:
             loaded_model = mlflow.pytorch.load_model(model_uri)
 
             # Get model version by alias
-            client = mlflow.MlflowClient()
-            model_version = client.get_model_version_by_alias(MODEL_NAME, MLFLOW_MODEL_ALIAS)
+            client = mlflow.MlflowClient()  # ty: ignore
+            model_version = client.get_model_version_by_alias(
+                MODEL_NAME, MLFLOW_MODEL_ALIAS
+            )
 
             if not model_version:
-                raise ValueError(f"No model found for {MODEL_NAME}@{MLFLOW_MODEL_ALIAS}")
+                raise ValueError(
+                    f"No model found for {MODEL_NAME}@{MLFLOW_MODEL_ALIAS}"
+                )
 
             run_id = model_version.run_id
 
             # Download scaler
-            scaler_path = mlflow.artifacts.download_artifacts(
+            scaler_artifact_path = mlflow.artifacts.download_artifacts(  # ty: ignore
                 run_id=run_id,
                 artifact_path="preprocessor/fitted_mm_scaler.pkl",
-                dst_path="/tmp",
+                dst_path="/tmp/mlflow_scaler",
             )
 
-            with open(scaler_path, "rb") as f:
-                scaler = pickle.load(f)
+            # Save entire model to disk (not just state_dict, so we can load without architecture)
+            torch.save(loaded_model, model_save_path)
 
-            print(f"Model loaded: {MODEL_NAME}@{MLFLOW_MODEL_ALIAS} (version {model_version.version})")
+            # Copy scaler to standard location
+            with open(scaler_artifact_path, "rb") as f:
+                scaler = pickle.load(f)
+            with open(scaler_save_path, "wb") as f:
+                pickle.dump(scaler, f)
+
+            print(
+                f"Model loaded: {MODEL_NAME}@{MLFLOW_MODEL_ALIAS} (version {model_version.version})"
+            )
             print(f"Run ID: {run_id}")
-            print(f"Scaler loaded from: {scaler_path}")
+            print(f"Model saved to: {model_save_path}")
+            print(f"Scaler saved to: {scaler_save_path}")
 
             return {
-                "model": loaded_model,
-                "scaler": scaler,
+                "model_path": model_save_path,
+                "scaler_path": scaler_save_path,
                 "model_version": model_version.version,
                 "model_alias": MLFLOW_MODEL_ALIAS,
                 "run_id": run_id,
@@ -232,8 +256,8 @@ def inference_anomaly_detection():
             print("Using placeholder mode (no actual inference)")
 
             return {
-                "model": None,
-                "scaler": None,
+                "model_path": None,
+                "scaler_path": None,
                 "model_version": "placeholder",
                 "run_id": None,
                 "model_loaded": False,
@@ -306,14 +330,21 @@ def inference_anomaly_detection():
         ORDER BY {", ".join(edge_attrs)}, ts
         """
 
-        data = conn.execute(load_query).arrow()
+        data = conn.execute(load_query).fetch_arrow_table()
         conn.close()
 
-        print(f"Loaded {len(data)} records from S3")
-        print(f"Using {len(feature_attrs)} features and {len(edge_attrs)} edge attributes")
+        print(f"Loaded {data.num_rows} records from S3")
+        print(
+            f"Using {len(feature_attrs)} features and {len(edge_attrs)} edge attributes"
+        )
+
+        # Load scaler from disk
+        import pickle
+
+        with open(model_info["scaler_path"], "rb") as f:
+            scaler = pickle.load(f)
 
         # Apply scaling
-        scaler = model_info["scaler"]
         scaled_data, _ = minmax_scale(data, feature_attrs, scaler)
 
         # Build graph
@@ -327,8 +358,8 @@ def inference_anomaly_detection():
 
         print(f"Graph: {graph.num_nodes} nodes, {graph.num_edges} edges")
 
-        # Run inference
-        model = model_info["model"]
+        # Load model from disk
+        model = torch.load(model_info["model_path"], weights_only=False)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model = model.to(device)
         model.eval()
@@ -484,11 +515,11 @@ def inference_anomaly_detection():
         # Alert if anomaly count exceeds threshold
         if total_anomalies >= ALERT_THRESHOLD:
             alert_msg = (
-                "⚠️  HIGH ANOMALY ALERT ⚠️"
-                f"Detected {total_anomalies} anomalies ({anomaly_rate:.2%})"
-                f"Threshold: {ALERT_THRESHOLD} anomalies"
-                f"Model: {model_version}"
-                f"Input: {inference_results['input_file']}"
+                "⚠️  HIGH ANOMALY ALERT ⚠️\n"
+                f"Detected {total_anomalies} anomalies ({anomaly_rate:.2%})\n"
+                f"Threshold: {ALERT_THRESHOLD} anomalies\n"
+                f"Model: {model_version}\n"
+                f"Input: {inference_results['input_file']}\n"
                 f"Predictions: {export_info['output_uri']}"
             )
 
@@ -545,7 +576,9 @@ def inference_anomaly_detection():
         print(f"Model Alias: {MLFLOW_MODEL_ALIAS}")
         print(f"Model Version: {inference_results['model_version']}")
         print(f"Detection Mode: {'Binary' if BINARY_MODE else 'Multiclass'}")
-        print(f"Feature Schema: {inference_results.get('schema_type', 'unknown').upper()}")
+        print(
+            f"Feature Schema: {inference_results.get('schema_type', 'unknown').upper()}"
+        )
         print(f"Number of Features: {inference_results.get('num_features', 0)}")
 
         # Inference results
