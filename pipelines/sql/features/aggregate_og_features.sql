@@ -173,6 +173,6 @@ ON dest.srcip = src.srcip
     AND dest.dstip = src.dstip
     AND dest.dsport = src.dsport
     AND dest.stime = src.stime
-WHEN MATCHED THEN UPDATE SET *
+WHEN MATCHED THEN UPDATE SET computed_at = src.computed_at
 WHEN NOT MATCHED THEN INSERT *
 RETURNING 1;

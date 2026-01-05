@@ -11,6 +11,8 @@ import duckdb
 import pyarrow as pa
 from confluent_kafka import Consumer, KafkaError
 
+from sqlutils import SQLTemplate
+
 from .const import (
     CONN_ARROW_SCHEMA,
     DNS_ARROW_SCHEMA,
@@ -28,17 +30,23 @@ class LogBatch:
         "table_name",
         "schema",
         "batch_size",
-        "max_age_sec",
+        "max_age",
         "first_insert_time",
         "data",
         "rows",
     )
 
-    def __init__(self, table_name, schema, batch_size, max_age_sec):
+    def __init__(
+        self,
+        table_name,
+        schema,
+        batch_size,
+        max_age,
+    ):
         self.table_name = table_name
         self.schema = schema
         self.batch_size = batch_size
-        self.max_age_sec = max_age_sec
+        self.max_age = max_age
 
         self.first_insert_time = None
         self.data: dict[str, list[Any]] = {field.name: [] for field in schema}
@@ -82,7 +90,7 @@ class LogBatch:
 
     def should_flush(self) -> bool:
         return len(self) > 0 and (
-            len(self) >= self.batch_size or self.age() >= self.max_age_sec
+            len(self) >= self.batch_size or self.age() >= self.max_age
         )
 
     def to_record_batch(self) -> pa.RecordBatch:
@@ -99,25 +107,29 @@ class LogBatch:
         self.first_insert_time = None
 
 
-class ZeekLoader:
+class ZeekLogLoader:
     """Loads raw Zeek logs from Kafka into DuckDB staging tables"""
 
     def __init__(
         self,
-        db_path: str,
         sql_dir: Path | str,
         bootstrap_servers: str,
         topic: str,
-        group_id: str = "zeek-consumer",
-        batch_size: int = 122880,  # https://arrow.apache.org/blog/2025/03/10/fast-streaming-inserts-in-duckdb-with-adbc/
-        max_age_sec: float = 5,
+        group_id: str,
+        batch_size: int,  # should be ideally >= 122880 -> https://arrow.apache.org/blog/2025/03/10/fast-streaming-inserts-in-duckdb-with-adbc/
+        max_age: float,
     ):
-        self.db_path = db_path
         self.bootstrap_servers = bootstrap_servers
         self.topic = topic
         self.group_id = group_id
         self.batch_size = batch_size
-        self.max_age_sec = max_age_sec
+        self.max_age = max_age
+
+        sql_dir = Path(sql_dir)
+
+        self.update_watermark_tmpl = SQLTemplate.from_file(
+            sql_dir / "watermarks" / "update_source_watermark.sql"
+        )
 
     def consume_and_insert(
         self, global_conn: duckdb.DuckDBPyConnection, duration_seconds: int | None
@@ -146,37 +158,37 @@ class ZeekLoader:
                 "raw_conn",
                 CONN_ARROW_SCHEMA,
                 self.batch_size,
-                self.max_age_sec,
+                self.max_age,
             ),
             "pkt_stats": LogBatch(
                 "raw_pkt_stats",
                 PKT_STATS_ARROW_SCHEMA,
                 self.batch_size,
-                self.max_age_sec,
+                self.max_age,
             ),
             "dns": LogBatch(
                 "raw_dns",
                 DNS_ARROW_SCHEMA,
                 self.batch_size,
-                self.max_age_sec,
+                self.max_age,
             ),
             "http": LogBatch(
                 "raw_http",
                 HTTP_ARROW_SCHEMA,
                 self.batch_size,
-                self.max_age_sec,
+                self.max_age,
             ),
             "ssl": LogBatch(
                 "raw_ssl",
                 SSL_ARROW_SCHEMA,
                 self.batch_size,
-                self.max_age_sec,
+                self.max_age,
             ),
             "ftp": LogBatch(
                 "raw_ftp",
                 FTP_ARROW_SCHEMA,
                 self.batch_size,
-                self.max_age_sec,
+                self.max_age,
             ),
         }
 
@@ -200,6 +212,13 @@ class ZeekLoader:
                         logger.warning("Quiet period - flushing pending batches")
                         for tbl, nrows in flushed_rows.items():
                             logger.info(f"Flushed {nrows} to {tbl}")
+
+                        updated_tables = [batch.table_name for batch in flushables]
+                        self._update_source_watermarks(conn, updated_tables)
+
+                        logger.info(
+                            f"Updated source watermarks for tables: {', '.join(updated_tables)}"
+                        )
 
                     continue
 
@@ -292,6 +311,13 @@ class ZeekLoader:
                             for tbl, nrows in flushed_rows.items():
                                 logger.info(f"Flushed {nrows} to {tbl}")
 
+                            updated_tables = [batch.table_name for batch in flusables]
+                            self._update_source_watermarks(conn, updated_tables)
+
+                            logger.info(
+                                f"Updated source watermarks for tables: {', '.join(updated_tables)}"
+                            )
+
                         except Exception as e:
                             logger.error(f"Batch flush failed: {e}", exc_info=True)
                             raise  # Stop consumer
@@ -315,6 +341,13 @@ class ZeekLoader:
                     logger.info(f"Processed {messages_processed} messages")
                     for tbl, nrows in flushed_rows.items():
                         logger.info(f"Flushed {nrows} to {tbl}")
+
+                    updated_tables = [batch.table_name for batch in flusables]
+                    self._update_source_watermarks(conn, updated_tables)
+
+                    logger.info(
+                        f"Updated source watermarks for tables: {', '.join(updated_tables)}"
+                    )
 
                 except Exception as e:
                     logger.error(f"Final flush failed: {e}", exc_info=True)
@@ -358,3 +391,10 @@ class ZeekLoader:
             batch.clear()
 
         return flushed_rows
+
+    def _update_source_watermarks(
+        self, conn: duckdb.DuckDBPyConnection, sources: list[str]
+    ):
+        for source in sources:
+            sql, _ = self.update_watermark_tmpl.substitute(source=source).duck
+            conn.execute(sql)

@@ -1,5 +1,6 @@
 import argparse
 import logging
+import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
@@ -8,7 +9,7 @@ import duckdb
 from sqlutils import SQL
 
 from .archiver import DataArchiver
-from .loader import ZeekLoader
+from .loader import ZeekLogLoader
 from .transformer import FeatureTransformer
 
 # Configuration
@@ -20,7 +21,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class ZeekETLPipeline:
+class ZeekDataPipeline:
     """Orchestrates the Zeek ETL pipeline."""
 
     def __init__(
@@ -31,41 +32,49 @@ class ZeekETLPipeline:
         bootstrap_servers: str,
         topic: str,
         group_id: str = "zeek-consumer",
-        aggregation_interval_sec: int = 5,
-        archive_age_sec: int = 10,  # 10 seconds (very fast archival)
-        retention_sec: int = 60,  # 1 minute (fast cleanup)
-        feature_set: str = "og",  # "og" or "nf"
-        batch_size_threshold: int = 10000,
+        feature_set: str = "nf",  # "og" or "nf"
+        loader_batch_size: int = 122880,
+        loader_max_age: float = 5,
+        aggregation_interval: float = 30,
+        slack: float = 5,
+        archive_interval: float = 5,
+        retention: float = 3600,
+        backup_interval: float = 12 * 3600,
+        reserved: int = 10000,
     ):
         self.db_path = db_path
         self.archive_path = archive_path
         self.sql_dir = Path(sql_dir)
 
-        self.loader = ZeekLoader(db_path, sql_dir, bootstrap_servers, topic, group_id)
+        self.loader = ZeekLogLoader(
+            sql_dir=sql_dir,
+            bootstrap_servers=bootstrap_servers,
+            topic=topic,
+            group_id=group_id,
+            batch_size=loader_batch_size,
+            max_age=loader_max_age,
+        )
 
         self.transformer = FeatureTransformer(
-            db_path=db_path,
             sql_dir=sql_dir,
-            aggregation_interval_sec=aggregation_interval_sec,
-            slack_seconds=5.0,
             feature_set=feature_set,
+            aggregation_interval=aggregation_interval,
+            slack=slack,
         )
 
         self.archiver = DataArchiver(
-            db_path=db_path,
-            archive_path=archive_path,
             sql_dir=sql_dir,
-            archive_age_secs=archive_age_sec,
-            retention_secs=retention_sec,
+            archive_path=archive_path,
             feature_set=feature_set,
-            batch_size_threshold=batch_size_threshold,
-            min_archive_interval_sec=30,
+            archive_interval=archive_interval,
+            retention=retention,
+            backup_interval=backup_interval,
+            reserved=reserved,
         )
 
-    def init_db(self):
+    def init_db(self, global_conn: duckdb.DuckDBPyConnection):
         """Initialize DuckDB schema."""
-        conn = duckdb.connect(self.db_path)
-        cursor = conn.cursor()
+        conn = global_conn.cursor()
 
         logger.info("Initializing database schema...")
 
@@ -90,7 +99,7 @@ class ZeekETLPipeline:
         for sql_file in schema_files:
             logger.debug(f"Executing {sql_file}")
             sql = SQL.from_file(self.sql_dir / "schema" / sql_file)
-            cursor.execute(*sql.duck)
+            conn.execute(*sql.duck)
 
         logger.info("Creating indices...")
         # Create indices - execute one by one
@@ -101,10 +110,10 @@ class ZeekETLPipeline:
         for statement in indices_content.split(";"):
             statement = statement.strip()
             if statement:
-                cursor.execute(statement)
+                conn.execute(statement)
 
         logger.info("Initializing watermarks...")
-        # Initialize watermarks
+
         init_files = [
             "init_source_watermarks.sql",
             "init_etl_watermarks.sql",
@@ -112,31 +121,86 @@ class ZeekETLPipeline:
 
         for sql_file in init_files:
             logger.debug(f"Executing {sql_file}")
-            sql = SQL.from_file(self.sql_dir / "inserts" / sql_file)
-            cursor.execute(*sql.duck)
+            sql = SQL.from_file(self.sql_dir / "watermarks" / sql_file)
+            conn.execute(*sql.duck)
 
         logger.info("Database schema initialized successfully")
-        cursor.close()
         conn.close()
 
-    def run(self, duration_seconds: int | None = None):
+    def create_s3_secret(self, global_conn: duckdb.DuckDBPyConnection):
+        key_id = os.getenv("AWS_ACCESS_KEY_ID")
+        secret = os.getenv("AWS_SECRET_ACCESS_KEY")
+        endpoint = os.getenv("DUCKDB_S3_ENDPOINT")
+
+        if not key_id or not secret or not endpoint:
+            logger.warning(
+                "S3 credentials incomplete or not found, skip AWS secret setup"
+            )
+            return
+
+        conn = global_conn.cursor()
+        conn.execute("DROP SECRET IF EXISTS s3_secret")
+        conn.execute(
+            f"""
+            CREATE PERSISTENT SECRET s3_secret (
+                -- default
+                TYPE s3,
+                REGION 'us-east-1',
+                USE_SSL false,
+                URL_STYLE 'path',
+
+                -- parameters
+                KEY_ID   '{key_id}',
+                SECRET   '{secret}',
+                ENDPOINT '{endpoint}'
+            )
+            """,
+        )
+
+        result = conn.execute("SELECT * FROM duckdb_secrets();").fetchall()
+        logger.info(f"Secret created: {result}")
+        conn.close()
+
+    def run(
+        self,
+        duration: float | None = None,
+        disable_transform: bool = False,
+        disable_archive: bool = False,
+    ):
         """Start all threads."""
         logger.info("Starting Zeek ETL pipeline")
 
-        self.init_db()
+        conn = duckdb.connect(self.db_path, config={"autoload_known_extensions": True})
+
+        self.init_db(conn)
+        self.create_s3_secret(conn)
 
         with ThreadPoolExecutor(max_workers=3, thread_name_prefix="ETL") as executor:
             futures = {
                 executor.submit(
-                    self.loader.consume_and_insert, duration_seconds
+                    self.loader.consume_and_insert,
+                    conn,
+                    duration,
                 ): "Loader",
-                executor.submit(
-                    self.transformer.aggregate_features, duration_seconds
-                ): "Transformer",
-                executor.submit(
-                    self.archiver.archive_old_data, duration_seconds, 30
-                ): "Archiver",  # check_interval_sec=30
             }
+
+            if not disable_transform:
+                futures[
+                    executor.submit(
+                        self.transformer.aggregate_features,
+                        conn,
+                        duration,
+                    )
+                ] = "Transformer"
+
+            if not disable_archive:
+                futures[
+                    executor.submit(
+                        self.archiver.archive_old_data,
+                        conn,
+                        duration,
+                    )
+                ] = "Archiver"
 
             for future in as_completed(futures):
                 thread_name = futures[future]
@@ -155,20 +219,20 @@ class ZeekETLPipeline:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Zeek Kafka to DuckDB streaming ETL pipeline",
+        description="Zeek-Kafka to DuckDB streaming ETL pipeline",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
         "--db-path",
         type=str,
-        default="/data/features.db",
+        default="/data/pipeline.db",
         help="Path to DuckDB database file",
     )
     parser.add_argument(
         "--archive-path",
         type=str,
-        default="/data/archive",
-        help="Path to archive directory",
+        default="s3://pipeline-data",
+        help="Path to archive directory (local path or s3 compatible storage)",
     )
     parser.add_argument(
         "--sql-dir",
@@ -183,28 +247,16 @@ def main():
         help="Kafka bootstrap servers",
     )
     parser.add_argument(
-        "--topic", type=str, default="zeek.dpi", help="Kafka topic to consume from"
+        "--topic",
+        type=str,
+        default="zeek.dpi",
+        help="Kafka topic to consume from",
     )
     parser.add_argument(
-        "--group-id", type=str, default="zeek-consumer", help="Kafka consumer group ID"
-    )
-    parser.add_argument(
-        "--aggregation-interval",
-        type=int,
-        default=5,
-        help="Aggregation interval in seconds (default: 5 seconds)",
-    )
-    parser.add_argument(
-        "--archive-age-sec",
-        type=int,
-        default=10,
-        help="How old data must be before archiving in seconds (default: 10s for very fast archival)",
-    )
-    parser.add_argument(
-        "--retention-sec",
-        type=int,
-        default=60,
-        help="How long to keep data in hot storage in seconds (default: 60s = 1 minute for fast cleanup)",
+        "--group-id",
+        type=str,
+        default="zeek-consumer",
+        help="Kafka consumer group ID",
     )
     parser.add_argument(
         "--feature-set",
@@ -214,36 +266,84 @@ def main():
         help="Feature set to use: og (Original UNSW-NB15) or nf (NetFlow)",
     )
     parser.add_argument(
-        "--batch-size-threshold",
+        "--loader-batch-size",
         type=int,
-        default=10000,
-        help="Batch size threshold for archiving (default: 10000 records)",
+        default=122880,
+        help="Batch size for incoming messages per log head before flushing to database (default: 122880)",
+    )
+    parser.add_argument(
+        "--loader-max-age",
+        type=float,
+        default=5.0,
+        help="Maximum age allowed for data to sit in batch before flushing in seconds (default: 5s)",
+    )
+    parser.add_argument(
+        "--aggregation-interval",
+        type=float,
+        default=30.0,
+        help="Feature aggregation interval in seconds (default: 30s)",
+    )
+    parser.add_argument(
+        "--slack",
+        type=float,
+        default=5.0,
+        help="Delay in seconds for performing join on log sources to mitigate incomplete data (default: 5s)",
+    )
+    parser.add_argument(
+        "--archive-interval",
+        type=float,
+        default=5.0,
+        help="Computed feature archival in seconds",
+    )
+    parser.add_argument(
+        "--retention",
+        type=float,
+        default=3600,
+        help="Reserves events within this interval when cleanup",
+    )
+    parser.add_argument(
+        "--backup-interval",
+        type=float,
+        default=12 * 3600,
+        help="Backup interval in seconds (default: (12 * 3600)s)",
+    )
+    parser.add_argument(
+        "--reserved",
+        type=int,
+        default=10_000,
+        help="Minimum records to reserve when cleanup",
     )
     parser.add_argument(
         "--duration",
-        type=int,
+        type=float,
         default=None,
         help="Duration to run pipeline in seconds (None = run forever)",
     )
 
     args = parser.parse_args()
 
-    pipeline = ZeekETLPipeline(
+    pipeline = ZeekDataPipeline(
         db_path=args.db_path,
         archive_path=args.archive_path,
         sql_dir=args.sql_dir,
         bootstrap_servers=args.bootstrap_servers,
         topic=args.topic,
         group_id=args.group_id,
-        aggregation_interval_sec=args.aggregation_interval,
-        archive_age_sec=args.archive_age_sec,
-        retention_sec=args.retention_sec,
         feature_set=args.feature_set,
-        batch_size_threshold=args.batch_size_threshold,
+        loader_batch_size=args.loader_batch_size,
+        loader_max_age=args.loader_max_age,
+        aggregation_interval=args.aggregation_interval,
+        slack=args.slack,
+        archive_interval=args.archive_interval,
+        retention=args.retention,
+        backup_interval=args.backup_interval,
+        reserved=args.reserved,
     )
 
     try:
-        pipeline.run(duration_seconds=args.duration)
+        pipeline.run(
+            duration=args.duration,
+        )
     except KeyboardInterrupt:
         logger.info("Pipeline interrupted by user")
 

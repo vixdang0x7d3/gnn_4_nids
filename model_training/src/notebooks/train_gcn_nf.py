@@ -18,6 +18,8 @@ def _():
     import pickle
     from pathlib import Path
 
+    from datetime import datetime
+
     import torch
     import torch.nn as nn
     from torch.optim import Adadelta, Adam
@@ -52,6 +54,7 @@ def _():
         class_weight,
         classification_report,
         confusion_matrix,
+        datetime,
         duckdb,
         f1_score,
         mlflow,
@@ -159,7 +162,7 @@ def _(duckdb, os, osp, project_root):
 
         # Model Architecture
         "n_features": 13,  # NetFlow features
-        "n_convs": 2,
+        "n_convs": 64,
         "n_hidden": 512,
         "alpha": 0.5,
         "theta": 0.7,
@@ -527,6 +530,7 @@ def _(mo):
 def _(
     EXPERIMENT_NAME,
     artifacts_path,
+    datetime,
     device,
     loss_fn,
     loss_fn_val,
@@ -556,8 +560,11 @@ def _(
     print(f"Starting MLflow Run: {model_name}")
     print(f"Tracking URI: {mlflow.get_tracking_uri()}")
 
+
+    now = datetime.now()
+
     # Start MLflow run
-    with mlflow.start_run(run_name=model_name) as run:
+    with mlflow.start_run(run_name=f"run_{model_name}_{now.strftime('%Y%m%d%H%M%S')}") as run:
         # Log all parameters
         mlflow.log_params(params)
 
@@ -600,7 +607,7 @@ def _(
                     }, step=epoch)
 
         # Log model to MLflow (convert to CPU for inference in CPU-only containers)
-        mlflow.pytorch.log_model(model.cpu(), "model")
+        mlflow.pytorch.log_model(model, f"{model_name}_{now.strftime('%Y%m%d%H%M%S')}")
 
         # Log scaler artifact
         if osp.exists(scaler_save_path):
@@ -667,7 +674,6 @@ def _(params):
 @app.cell
 def _(device, model, params, test_loader, torch):
     # Run inference
-    model.cuda()
     model.eval()
     y_true = []
     y_pred = []

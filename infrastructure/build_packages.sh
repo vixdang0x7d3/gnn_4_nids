@@ -47,8 +47,12 @@ echo "Copying wheels to data_pipeline..."
 cp "$SCRIPT_DIR/airflow/packages/graph_building-"*.whl "$SCRIPT_DIR/data_pipeline/packages/"
 cp "$SCRIPT_DIR/airflow/packages/data_pipeline-"*.whl "$SCRIPT_DIR/data_pipeline/packages/"
 
-echo "Packages are copied:"
+echo "Copying sql to data_pipeline..."
+cp -r "$ROOT_DIR/pipelines/sql" "$SCRIPT_DIR/data_pipeline/"
+
+echo "Dependencies are copied:"
 ls -lh "$SCRIPT_DIR/data_pipeline/packages/"*.whl
+ls -lh "$SCRIPT_DIR/data_pipeline/sql/"**/*.sql
 echo ""
 
 echo "Done!"

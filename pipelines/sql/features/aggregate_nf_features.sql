@@ -220,6 +220,6 @@ USING (
     WHERE ts > :last_unified_flow_ts -- DELTA FILTER
 ) AS src
 ON dest.uid = src.uid
-WHEN MATCHED THEN UPDATE SET *
+WHEN MATCHED THEN UPDATE SET computed_at = src.computed_at
 WHEN NOT MATCHED THEN INSERT *
 RETURNING 1;

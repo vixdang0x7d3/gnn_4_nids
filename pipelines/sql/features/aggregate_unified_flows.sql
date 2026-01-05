@@ -76,7 +76,8 @@ USING (
     LEFT JOIN dedup_dns d ON c.uid = d.uid
     LEFT JOIN dedup_http h ON c.uid = h.uid
     LEFT JOIN raw_ftp f ON c.uid = f.uid
-    WHERE c.ts > :last_raw_log_ts -- DELTA FILTER
+    WHERE c.ts > :last_raw_log_ts
+        AND c.ts < :safe_horizon -- DELTA FILTER
 ) AS src
 ON dest.uid = src.uid
 WHEN MATCHED THEN UPDATE SET computed_at = src.computed_at

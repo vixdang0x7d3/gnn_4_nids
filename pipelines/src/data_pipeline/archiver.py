@@ -8,349 +8,299 @@ from typing import Any
 
 import duckdb
 
-from sqlutils import SQLTemplate
+from sqlutils import SQL, SQLTemplate
 
 logger = logging.getLogger(__name__)
 
 
 class DataArchiver:
-    """Manages hot/cold storage lifecycle."""
+    """Move data to external storage."""
 
     def __init__(
         self,
-        db_path: str,
         archive_path: Path | str,
         sql_dir: Path | str,
-        feature_set: str = "nf",
-        batch_size_threshold: int = 10000,
-        archive_age_secs: int = 5,
-        min_archive_interval_sec: int = 10,
-        retention_secs: int = 30 * 60,
+        feature_set: str,  # 'nf' or 'og'
+        archive_interval: float,  # archive new features every n seconds
+        retention: float,  # event retention interval in seconds
+        backup_interval: float,  # backup every n seconds
+        reserved: int,  # keep at least n records during deletion
     ):
-        self.db_path = db_path
-        self.archive_path = Path(archive_path)
+        if isinstance(archive_path, str) and archive_path.startswith("s3://"):
+            self.archive_path = archive_path
+        else:
+            archive_path = Path(archive_path)
+            (archive_path / "features").mkdir(parents=True, exist_ok=True)
+            (archive_path / "backups").mkdir(parents=True, exist_ok=True)
+            self.archive_path = str(archive_path)
+
         self.feature_set = feature_set
-        self.archive_age_secs = archive_age_secs
-        self.min_archive_interval_sec = min_archive_interval_sec
-        self.batch_size_threshold = batch_size_threshold
-        self.retention_secs = retention_secs
+        self.archive_interval = archive_interval
+        self.retention = retention
+        self.backup_inteval = backup_interval
+        self.reserved = reserved
 
-        # Track last archive time
-        self._last_archive_time = 0.0
-        self._last_archived_count = 0
-
-        # Ensure archive directory exists
-        self.archive_path.mkdir(parents=True, exist_ok=True)
+        self._last_backup_dt = datetime.now()
 
         sql_dir = Path(sql_dir)
+
+        self.update_watermark_sql = SQL.from_file(
+            sql_dir / "watermarks" / "update_pipeline_watermark.sql"
+        )
 
         self.export_template = SQLTemplate.from_file(
             sql_dir / "archival" / "export.sql"
         )
 
-        self.delete_old_raw_template = SQLTemplate.from_file(
-            sql_dir / "archival" / "delete_old_raw.sql"
-        )
-
-        self.delete_old_computed_template = SQLTemplate.from_file(
-            sql_dir / "archival" / "delete_old_computed.sql"
+        self.delete_template = SQLTemplate.from_file(
+            sql_dir / "archival" / "delete.sql"
         )
 
         if self.feature_set not in ("og", "nf"):
             raise ValueError(f"Invalid feature set: {self.feature_set}")
 
-    def _should_archive(self, conn: duckdb.DuckDBPyConnection) -> tuple[bool, str, int]:
-        """
-        Check if archival should run based on configured striggers.
+    def _get_last_processed_ts(
+        self, conn: duckdb.DuckDBPyConnection, stage: str
+    ) -> float:
+        """Get last archival timestamp"""
 
-        Args:
-            conn: DuckDB connection
-
-        Returns:
-            Tuple of (should_archive, reason, ready_count)
-        """
-        now = time.time()
-
-        # Check interval (prevent thrashing)
-        time_since_last = now - self._last_archive_time
-        if time_since_last < self.min_archive_interval_sec:
-            return False, f"Too soon (last archive {time_since_last:.0f}s ago)", 0
-
-        # Calculate cutoff
-        archive_cutoff_datetime = datetime.now() - timedelta(
-            seconds=self.archive_age_secs
-        )
-        archive_cutoff_ts = archive_cutoff_datetime.timestamp()
-
-        # Check how many records are ready to archive
-        table_name = f"{self.feature_set}_features"
-        count_result = conn.execute(
-            f"SELECT COUNT(*) FROM {table_name} WHERE ts < ?",
-            [archive_cutoff_ts],
+        result = conn.execute(
+            """
+            SELECT last_processed_ts FROM etl_watermarks
+            WHERE pipeline_stage = ?
+            """,
+            [stage],
         ).fetchone()
 
-        ready_count = count_result[0] if count_result else 0
-        if ready_count == 0:
-            return False, "No data ready", 0
+        return result[0] if result and result[0] else 0.0
 
-        # Trigger: Batch size threshold reached
-        if ready_count >= self.batch_size_threshold:
-            return (
-                True,
-                f"Batch threshold reached ({ready_count} >= {self.batch_size_threshold})",
-                ready_count,
-            )
+    def _update_pipeline_watermark(
+        self, conn: duckdb.DuckDBPyConnection, stage: str, timestamp: float
+    ):
+        """Update archival watermark to new timestamp"""
 
-        # If we have ANY data and enough time has passed, archive it
-        # This prevents data from sitting around waiting for batch to fill
-        if ready_count > 0 and time_since_last >= self.min_archive_interval_sec * 2:
-            return True, f"Time elapsed with {ready_count} records ready", ready_count
-
-        return (
-            False,
-            f"Waiting ({ready_count}/{self.batch_size_threshold}, {time_since_last:.0f}s elapsed)",
-            ready_count,
-        )
-
-    def _export_features(
-        self,
-        conn: duckdb.DuckDBPyConnection,
-        cutoff_ts: float,
-        output_path: str,
-    ) -> int:
-        """
-        Export features older than cutoff to Parquet
-        """
-        feature_tbl = f"{self.feature_set}_features"
-
-        logger.info(f"Exporting {feature_tbl} to {output_path}")
-
-        export_feature_sql = self.export_template.substitute(source=feature_tbl)
-
-        sql_str, params = export_feature_sql(
-            cutoff_ts=cutoff_ts, output_path=output_path
+        sql, params = self.update_watermark_sql(
+            stage=stage,
+            last_processed_ts=timestamp,
         ).duck
 
-        conn.execute(sql_str, params)
+        conn.execute(sql, params)
 
-        count_result = conn.execute(
-            "SELECT COUNT(*) FROM read_parquet(?)", [output_path]
+    def _get_safe_cutoff_ts(
+        self, conn: duckdb.DuckDBPyConnection, source: str, downstream_stage: str
+    ) -> float:
+        safe_cutoff = conn.execute(
+            f"""
+            WITH bounds AS (
+                SELECT
+                    MAX(ts) - $retention AS time_cutoff,
+                    (SELECT ts FROM {source} ORDER BY ts DESC LIMIT 1 OFFSET $reserved) AS count_cutoff
+                FROM {source}
+            ),
+            downstream_bound AS (
+                SELECT COALESCE(
+                    last_processed_ts,
+                    (SELECT MAX(ts) FROM {source})
+                ) AS downstream_cutoff
+                FROM etl_watermarks
+                WHERE pipeline_stage = '{downstream_stage}'
+            )
+            SELECT LEAST (
+                time_cutoff,
+                count_cutoff,
+                downstream_cutoff
+            ) AS cutoff
+            FROM bounds, downstream_bound
+            """,
+            {
+                "retention": self.retention,
+                "reserved": self.reserved,
+            },
         ).fetchone()
-        record_count = count_result[0] if count_result else 0
 
-        logger.info(f"Successfully exported {record_count} records")
-        return record_count
+        return safe_cutoff[0] if safe_cutoff and safe_cutoff[0] else 0.0
 
-    def _export_unified_flows(
+    def _export_data(
         self,
         conn: duckdb.DuckDBPyConnection,
-        cutoff_ts: float,
-        output_path: str,
-    ) -> int:
+    ) -> tuple[int, str]:
         """
-        Export unified flows older than cutoff to Parquet
+        Export newly computed features to Parquet
         """
-        export_unified_flows_sql = self.export_template.substitute(
-            source="unified_flows"
-        )
-        bound_sql = export_unified_flows_sql(
-            cutoff_ts=cutoff_ts, output_path=output_path
-        )
-        conn.execute(*bound_sql.duck)  # ty: ignore
 
+        now = datetime.now()
+        output_filename = (
+            f"{self.feature_set}_features_{now.strftime('%Y%m%d%H%M%S')}.parquet"
+        )
+        output_path = f"{self.archive_path}/features/{output_filename}"
+
+        source = f"{self.feature_set}_features"
+
+        # Get max timestamp from feature table
+        result = conn.execute(f"SELECT COALESCE(MAX(ts), 0.0) FROM {source}").fetchone()
+
+        pipeline_stage = f"archive_{self.feature_set}_features"
+
+        max_features_ts = result[0] if result else 0.0
+        last_archival_ts = self._get_last_processed_ts(conn, pipeline_stage)
+
+        if max_features_ts <= last_archival_ts:
+            logger.info("No new features to export")
+            return 0, ""
+
+        logger.info(f"Exporting {source} to {output_path}")
+
+        export_feature_sql = self.export_template.substitute(source=source)
+
+        sql, params = export_feature_sql(
+            cutoff_ts=last_archival_ts, output_path=output_path
+        ).duck
+
+        conn.execute(sql, params)
+
+        # MORE SQL INJECTION!
         count_result = conn.execute(
-            "SELECT COUNT(*) FROM read_parquet(?)", [output_path]
+            f"SELECT COUNT(*) FROM read_parquet('{output_path}')",
         ).fetchone()
+
         record_count = count_result[0] if count_result else 0
 
-        logger.info(f"Successfully exported {record_count} unified flows")
-        return record_count
+        # Update archival watermark
+        self._update_pipeline_watermark(conn, pipeline_stage, max_features_ts)
 
-    def _delete_old_data(
-        self, conn: duckdb.DuckDBPyConnection, cuttoff_datetime: datetime
-    ) -> dict[str, int]:
+        logger.info(f"Exported {record_count:,} records")
+        return record_count, output_filename
+
+    def _backup_and_delete(
+        self,
+        conn: duckdb.DuckDBPyConnection,
+    ) -> tuple[dict[str, int], str]:
         """
-        Delete old data from all tables.
+        Backup and delete old data.
         """
+
+        now = datetime.now()
+
+        output_dirname = f"backup_{now.strftime('%Y%m%d%H%M%S')}"
+        output_path = f"{self.archive_path}/backups/{output_dirname}"
+
+        if now - self._last_backup_dt < timedelta(seconds=self.backup_inteval):
+            logger.info("Skipping backup")
+            return {}, ""
+
+        logger.info(f"Backing up data to {output_path}")
+
+        # backup existing data
+        # SQL INJECTION! Fix this or go kill yourself
+        conn.execute(
+            f"EXPORT DATABASE '{output_path}' (FORMAT parquet)",
+        )
+        self._last_backup_dt = now
 
         counts = {}
 
-        raw_tables = [
-            "raw_conn",
-            "raw_dns",
-            "raw_http",
-            "raw_pkt_stats",
-            "raw_ssl",
-            "raw_ftp",
+        lineage = [
+            (f"{self.feature_set}_features", f"archive_{self.feature_set}_features"),
+            ("unified_flows", f"compute_{self.feature_set}_features"),
+            ("raw_conn", "compute_unified_flows"),
+            ("raw_pkt_stats", "compute_unified_flows"),
+            ("raw_dns", "compute_unified_flows"),
+            ("raw_http", "compute_unified_flows"),
+            ("raw_ssl", "compute_unified_flows"),
+            ("raw_ftp", "compute_unified_flows"),
         ]
 
-        for tbl in raw_tables:
-            try:
-                sql = self.delete_old_raw_template.substitute(source=tbl)
-                bound_sql = sql(cutoff_ts=cuttoff_datetime)
-                result = conn.execute(*bound_sql.duck)  # ty: ignore
-                deleted_count = len(result.fetchall()) if result else 0
-                counts[tbl] = deleted_count
+        logger.info("Deleting historical data")
 
-                if deleted_count > 0:
-                    logger.info(f"Deleted {deleted_count} old records from {tbl}")
+        for source, downstream_stage in lineage:
+            cutoff_ts = self._get_safe_cutoff_ts(conn, source, downstream_stage)
 
-            except Exception as e:
-                logger.error(f"Error deleting old data from {tbl}: {e}")
-                counts[tbl] = 0
+            delete_sql = self.delete_template.substitute(
+                source=source,
+            )
 
-        computed_tables = ["unified_flows", f"{self.feature_set}_features"]
+            sql, params = delete_sql(cutoff_ts=cutoff_ts).duck
+            result = conn.execute(sql, params)
+            deleted_count = len(result.fetchall()) if result else 0
+            counts[source] = deleted_count
 
-        for tbl in computed_tables:
-            try:
-                sql = self.delete_old_computed_template.substitute(source=tbl)
-                bound_sql = sql(cutoff_ts=cuttoff_datetime)
-                result = conn.execute(*bound_sql.duck)  # ty: ignore
-                deleted_count = len(result.fetchall()) if result else 0
-                counts[tbl] = deleted_count
+            if deleted_count > 0:
+                logger.info(f"Deleted {deleted_count} old records from {source}")
 
-                if deleted_count > 0:
-                    logger.info(f"Deleted {deleted_count} old records from {tbl}")
-            except Exception as e:
-                logger.error(f"Error deleting old data from {tbl}: {e}")
-                counts[tbl] = 0
+        return counts, output_dirname
 
-        return counts
-
-    def run_once(self, force: bool = False) -> dict[str, Any] | None:
+    def run_once(
+        self,
+        global_conn: duckdb.DuckDBPyConnection,
+    ) -> dict[str, Any]:
         """
         Run one iteration of the archival process.
         """
-        conn = duckdb.connect(self.db_path)
+        conn = global_conn.cursor()
 
         try:
-            # Check if we should archive
-            if not force:
-                should_archive, reason, ready_count = self._should_archive(conn)
-                if not should_archive:
-                    logger.debug(f"Skipped archival: {reason}")
-                    return None
-                logger.info(f"Archival triggered: {reason}")
-
-            now = datetime.now()
-
-            # Cutoff for ARCHIVING
-            archive_cutoff_datetime = now - timedelta(seconds=self.archive_age_secs)
-            archive_cutoff_ts = archive_cutoff_datetime.timestamp()
-
-            # Cutoff for DELETION
-            delete_cutoff_datetime = now - timedelta(seconds=self.retention_secs)
-
-            # Generate feature output filename with timestamp
-            feature_output_filename = (
-                f"{self.feature_set}_features_{now.strftime('%Y%m%d%H%M%S')}.parquet"
-            )
-            feature_output_path = str(self.archive_path / feature_output_filename)
-
-            # Generate unified flows output filename with timestamp
-            unified_flows_output_filename = f"{self.feature_set}_unified_flows_{now.strftime('%Y%m%d%H%M%S')}.parquet"
-            unified_flows_output_path = str(
-                self.archive_path / unified_flows_output_filename
-            )
-
             # Step 1: Exports
-            start_time = time.time()
-            exported_feature_count = self._export_features(
-                conn, archive_cutoff_ts, feature_output_path
-            )
-            feature_export_duration = time.time() - start_time
+            exported_count, exported_filename = self._export_data(conn=conn)
 
-            exported_unified_flows_count = self._export_unified_flows(
-                conn, archive_cutoff_ts, unified_flows_output_path
-            )
-            unified_flows_export_duration = time.time() - start_time
+            # Step 2: Backup and delete old data
+            deleted_count, backup_dirname = self._backup_and_delete(conn)
 
-            # Step 2: Delete old data
-            delete_start = time.time()
-            deleted_count = self._delete_old_data(conn, delete_cutoff_datetime)
-            delete_duration = time.time() - delete_start
-
-            # Step 3: Commit all changes
-            conn.commit()
-
-            # Step 4: VACUUM (skipped for speed)
+            # Step 3: VACUUM (skipped for speed)
             # conn.execute("VACUUM")
 
-            total_duration = time.time() - start_time
-
-            # Update tracking
-            self._last_archive_time = time.time()
-            self._last_archived_count = (
-                exported_feature_count + exported_unified_flows_count
-            )
-
-            logger.info(
-                f"Archival completed in {total_duration:.2f}s. "
-                f"(export: {feature_export_duration:.2f}s, {unified_flows_export_duration:.2f}s;"
-                f"delete: {delete_duration:.2f}s)"
-            )
-
             return {
-                "exported_features": exported_feature_count,
-                "exported_unified_flows": exported_unified_flows_count,
+                "exported_count": exported_count,
                 "deleted_count": deleted_count,
-                "feature_output_file": (
-                    feature_output_filename if exported_feature_count > 0 else None
-                ),
-                "unified_flows_output_file": unified_flows_output_filename
-                if exported_unified_flows_count > 0
-                else None,
-                "duration_sec": total_duration,
+                "feature_output_file": exported_filename,
+                "backup_dir": backup_dirname,
             }
+
         finally:
             conn.close()
 
     def archive_old_data(
-        self, duration_seconds: int | None = None, check_interval_sec: int = 30
+        self,
+        global_conn: duckdb.DuckDBPyConnection,
+        duration: int | None = None,
     ):
         """
         Args:
-            duration_seconds: Run duration in seconds. None = run forever.
-            check_interval_secs: How often to check for new data (default: 30s)
+            duration: Run duration in seconds. None = run forever.
         """
 
         logger.info(
             f"Archival started:\n"
-            f"  - Archive age: {self.archive_age_secs}s\n"
-            f"  - Retention: {self.retention_secs}s\n"
-            f"  - Batch threshold: {self.batch_size_threshold} records\n"
-            f"  - Min interval: {self.min_archive_interval_sec}s\n"
-            f"  - Check interval: {check_interval_sec}s\n"
             f"  - Feature set: {self.feature_set}\n"
             f"  - Archive path: {self.archive_path}"
+            f"  - Archival interval: {self.archive_interval}s\n"
+            f"  - Retention: {self.retention}s\n"
         )
 
         start_time = time.time()
 
         try:
-            while (
-                duration_seconds is None or time.time() - start_time < duration_seconds
-            ):
+            while duration is None or time.time() - start_time < duration:
                 try:
                     # Check and potentially run archival
-                    stats = self.run_once(force=False)
+                    stats = self.run_once(global_conn)
+                    total_deleted = sum(stats["deleted_count"].values())
 
-                    # Log summary if archival ran
-                    if stats:
-                        total_deleted = sum(stats["deleted_count"].values())
+                    # Log archival summary
+                    if stats["exported_count"] > 0:
                         logger.info(
-                            f"Archived {stats['exported_features']} records -> {stats['feature_output_file']}\n"
-                            f"Archived {stats['exported_unified_flows']} unified flows -> {stats['unified_flows_output_file']}\n"
-                            f"in {stats['duration_sec']:.2f}s"
+                            f"Archived {stats['exported_count']} records to {stats['feature_output_file']}"
                         )
 
-                        if total_deleted > 0:
-                            logger.info(f"Deleted {total_deleted:,} records")
+                    # Log backup-delete summary
+                    if stats["backup_dir"] != "" and total_deleted > 0:
+                        logger.info(f"Deleted total {total_deleted:,} records")
+                        logger.info(f"Backed up to {stats['backup_dir']}")
 
                 except Exception as e:
                     logger.error(f"Archival error: {e}", exc_info=True)
 
-                time.sleep(check_interval_sec)
+                time.sleep(self.archive_interval)
+
         except KeyboardInterrupt:
             logger.info("Archival interrupted")
 

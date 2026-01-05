@@ -91,8 +91,7 @@ services:
       mc alias set nids_minio http://minio:9000 ${MINIO_ROOT_USER:-admin} ${MINIO_ROOT_PASSWORD:-minioadmin123};
       mc mb nids_minio/mlflow-artifacts --ignore-existing;
       mc mb nids_minio/model-registry --ignore-existing;
-      mc mb nids_minio/datasets --ignore-existing;
-      mc mb nids_minio/graph-cache --ignore-existing;
+      mc mb nids_minio/pipeline-data --ignore-existing;
       mc anonymous set download nids_minio/mlflow-artifacts;
       exit 0;
       "
@@ -156,7 +155,13 @@ services:
         --port 5000
         --allowed-hosts "mlflow:*,localhost:*"
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -195,14 +200,17 @@ services:
       - AIRFLOW__API_AUTH__JWT_SECRET=${AIRFLOW__API_AUTH__JWT_SECRET}
       # Scheduler timeouts - increase for slower task starts
       - AIRFLOW__SCHEDULER__TASK_QUEUED_TIMEOUT=1200
-      # AWS/S3 credentials for boto3 (MinIO)
+
+      # AWS/S3 credentials (MinIO)
       - AWS_ACCESS_KEY_ID=${MINIO_ROOT_USER:-admin}
       - AWS_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD:-minioadmin123}
+      # Required for MLFlow client
+      - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
+
     volumes:
       - ./airflow/logs:/opt/airflow/logs
       - ../pipelines/airflow/dags:/opt/airflow/dags
-      - duckdb_data:/data
-      - archive_data:/data/archive
+
     command: api-server
     networks:
       - ml_platform
@@ -242,14 +250,15 @@ services:
       - AIRFLOW__API_AUTH__JWT_SECRET=${AIRFLOW__API_AUTH__JWT_SECRET}
       # Scheduler timeouts - increase for slower task starts
       - AIRFLOW__SCHEDULER__TASK_QUEUED_TIMEOUT=1200
-      # AWS/S3 credentials for boto3 (MinIO)
+      # AWS/S3 credentials (MinIO)
       - AWS_ACCESS_KEY_ID=${MINIO_ROOT_USER:-admin}
       - AWS_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD:-minioadmin123}
+      # Required for MLFlow client
+      - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
+
     volumes:
       - ./airflow/logs:/opt/airflow/logs
       - ../pipelines/airflow/dags:/opt/airflow/dags
-      - duckdb_data:/data
-      - archive_data:/data/archive
     command: scheduler
     networks:
       - ml_platform
@@ -284,14 +293,15 @@ services:
       - AIRFLOW__API_AUTH__JWT_SECRET=${AIRFLOW__API_AUTH__JWT_SECRET}
       # Scheduler timeouts - increase for slower task starts
       - AIRFLOW__SCHEDULER__TASK_QUEUED_TIMEOUT=1200
-      # AWS/S3 credentials for boto3 (MinIO)
+      # AWS/S3 credentials (MinIO)
       - AWS_ACCESS_KEY_ID=${MINIO_ROOT_USER:-admin}
       - AWS_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD:-minioadmin123}
+      # Required for MLFlow client
+      - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
+
     volumes:
       - ./airflow/logs:/opt/airflow/logs
       - ../pipelines/airflow/dags:/opt/airflow/dags
-      - duckdb_data:/data
-      - archive_data:/data/archive
     command: dag-processor
     networks:
       - ml_platform
@@ -327,7 +337,7 @@ services:
       - |
         echo "Initializing Airflow database..."
         airflow db migrate
-        echo "✅ Airflow initialized successfully"
+        echo "Airflow initialized successfully"
         echo "Default user: admin (password in webserver logs)"
     networks:
       - ml_platform
@@ -335,59 +345,41 @@ services:
   # ============================================
   # STREAMING PIPELINE (Zeek -> Kafka -> DuckDB)
   # ============================================
-  # Init container to fix volume permissions
-  data_pipeline_init:
-    image: busybox:latest
-    container_name: data_pipeline_init
-    volumes:
-      - duckdb_data:/data
-      - archive_data:/data/archive
-    command: >
-      sh -c "
-      chown -R 50000:0 /data &&
-      chmod -R 775 /data &&
-      echo 'Permissions fixed for user 50000:0'
-      "
-    networks:
-      - ml_platform
-
   data_pipeline:
     build:
-      context: ..
-      dockerfile: ./infrastructure/data_pipeline/Dockerfile
+      context: ./data_pipeline/
+      dockerfile: Dockerfile
     image: data_pipeline:latest
     container_name: data_pipeline
-    user: "50000:0"  # Run as airflow user for shared volume access
     depends_on:
-      data_pipeline_init:
-        condition: service_completed_successfully
       broker:
         condition: service_healthy
     restart: unless-stopped
     environment:
-      - KAFKA_BOOTSTRAP_SERVERS=broker:29092
-      - KAFKA_TOPIC=zeek.dpi
-      - KAFKA_GROUP_ID=zeek-consumer
+      KAFKA_BOOTSTRAP_SERVERS: broker:29092
+      KAFKA_TOPIC: zeek.dpi
+      KAFKA_GROUP_ID: zeek-consumer
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-admin}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      DUCKDB_S3_ENDPOINT: minio:9000
     volumes:
-      - duckdb_data:/data
-      - archive_data:/data/archive
+      - pipeline_data:/data
     command: >
       python -m data_pipeline.etl
-        --db-path /data/features.db
-        --archive-path /data/archive
-        --sql-dir /sql
-        --bootstrap-servers broker:29092
-        --topic zeek.dpi
-        --group-id zeek-consumer
         --aggregation-interval 5
-        --archive-age-sec 10
-        --retention-sec 60
-        --feature-set nf
-        --batch-size-threshold 10000
+        --slack 5
+        --archive-interval 5
+        --retention 14400
+        --backup-interval 3600
+        --reserved 500000
     networks:
       - ml_platform
     healthcheck:
-      test: ["CMD-SHELL", "test -f /proc/1/cmdline && grep -q 'data_pipeline.etl' /proc/1/cmdline || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "test -f /proc/1/cmdline && grep -q 'data_pipeline.etl' /proc/1/cmdline || exit 1",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -408,7 +400,5 @@ volumes:
     name: minio_data
   postgres_data:
     name: postgres_data
-  duckdb_data:
-    name: duckdb_data
-  archive_data:
-    name: archive_data
+  pipeline_data:
+    name: pipeline_data
